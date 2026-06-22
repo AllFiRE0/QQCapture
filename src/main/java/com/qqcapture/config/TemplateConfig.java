@@ -82,8 +82,13 @@ public class TemplateConfig {
     private Template parseTemplate(String name, ConfigurationSection section) {
         Template.Builder builder = new Template.Builder(name);
         
+        // --- BossBar секция ---
         ConfigurationSection bossBarSection = section.getConfigurationSection("bossbar");
         if (bossBarSection != null) {
+            // enabled - новый ключ
+            boolean bossBarEnabled = bossBarSection.getBoolean("enabled", true);
+            builder.bossBarEnabled(bossBarEnabled);
+            
             String color = bossBarSection.getString("color", "GREEN");
             if (isValidBossBarColor(color)) {
                 builder.bossBarColor(color);
@@ -92,7 +97,8 @@ public class TemplateConfig {
                 builder.bossBarColor("GREEN");
             }
             
-            int updateInterval = bossBarSection.getInt("обновлять-боссбар-каждые-N-тиков", 20);
+            // update-interval-ticks вместо обновлять-боссбар-каждые-N-тиков
+            int updateInterval = bossBarSection.getInt("update-interval-ticks", 20);
             if (updateInterval < 1) {
                 validationWarnings.add("Template '" + name + "': Bossbar update interval too low (" + updateInterval + "), using 1");
                 updateInterval = 1;
@@ -130,13 +136,18 @@ public class TemplateConfig {
             }
             builder.timerFormat(timerFormat);
             
-            builder.sendOnRejoin(bossBarSection.getBoolean("отправлять-боссбар-когда-игрок-перезаходит-на-сервер", true));
+            // send-on-rejoin вместо отправлять-боссбар-когда-игрок-перезаходит-на-сервер
+            boolean sendOnRejoin = bossBarSection.getBoolean("send-on-rejoin", true);
+            builder.sendOnRejoin(sendOnRejoin);
             
-            String bossBarText = bossBarSection.getString("текст-боссбара", 
+            // text вместо текст-боссбара
+            String bossBarText = bossBarSection.getString("text", 
                 "Ивент: %current%/%max% (Участников: %players% Групп: %groups%)");
             builder.bossBarText(bossBarText);
         } else {
-            builder.bossBarColor("GREEN")
+            // Default bossbar settings
+            builder.bossBarEnabled(true)
+                   .bossBarColor("GREEN")
                    .bossBarUpdateTicks(20)
                    .startText("<gradient:#00FF00:#55FF55>Ивент начался!</gradient>")
                    .progressText("<gradient:#FF0000:#FFAA00>Прогресс: %current%/%max%</gradient>")
@@ -150,18 +161,22 @@ public class TemplateConfig {
                    .bossBarText("Ивент: %current%/%max% (Участников: %players% Групп: %groups%)");
         }
         
+        // --- Conditions ---
         String condition = section.getString("condition", "");
         builder.condition(condition);
         
         String allPlayersCondition = section.getString("all-players-condition", "");
         builder.allPlayersCondition(allPlayersCondition);
         
+        // --- Rules ---
         Map<String, Map<String, String>> rules = parseRules(section);
         builder.rules(rules);
         
+        // --- Permission ---
         String permission = section.getString("permission", "");
         builder.permission(permission);
         
+        // --- Player limits ---
         int minPlayers = section.getInt("min-players", 2);
         if (minPlayers < 0) {
             validationWarnings.add("Template '" + name + "': Min players cannot be negative (" + minPlayers + "), using 0");
@@ -180,6 +195,7 @@ public class TemplateConfig {
         }
         builder.maxPlayers(maxPlayers);
         
+        // --- Capture settings ---
         int needAmount = section.getInt("need-amount", 100000);
         if (needAmount <= 0) {
             validationErrors.add("Template '" + name + "': Need amount must be > 0 (" + needAmount + ")");
@@ -201,6 +217,7 @@ public class TemplateConfig {
         }
         builder.multiplier(multiplier);
         
+        // --- Team multiplier ---
         String teamMultiplierType = section.getString("type-team-multiplier", "individual");
         if (!isValidTeamMultiplierType(teamMultiplierType)) {
             validationWarnings.add("Template '" + name + "': Invalid team multiplier type '" + teamMultiplierType + "', using 'individual'");
@@ -215,6 +232,7 @@ public class TemplateConfig {
         }
         builder.teamMultiplier(teamMultiplier);
         
+        // --- Region ---
         String pos1Str = section.getString("pos1", "0,0,0");
         String pos2Str = section.getString("pos2", "0,-1,0");
         
@@ -250,16 +268,29 @@ public class TemplateConfig {
         }
         builder.regionFlags(regionFlags);
         
-        boolean tickCommand = section.getBoolean("tick-command", false);
-        builder.tickCommand(tickCommand);
-        
-        List<String> commands = section.getStringList("commands");
-        if (commands == null) {
-            commands = new ArrayList<>();
+        // --- Max duration ---
+        int maxDuration = section.getInt("max-duration", 0);
+        if (maxDuration < 0) {
+            validationWarnings.add("Template '" + name + "': Max duration cannot be negative (" + maxDuration + "), using 0");
+            maxDuration = 0;
         }
+        builder.maxDuration(maxDuration);
         
-        List<String> validatedCommands = validateCommands(commands, name);
-        builder.commands(validatedCommands);
+        // --- Commands (разделенные на start/tick/end) ---
+        List<String> startCommands = section.getStringList("start-commands");
+        if (startCommands == null) startCommands = new ArrayList<>();
+        List<String> validatedStartCommands = validateCommands(startCommands, name);
+        builder.startCommands(validatedStartCommands);
+        
+        List<String> tickCommands = section.getStringList("tick-commands");
+        if (tickCommands == null) tickCommands = new ArrayList<>();
+        List<String> validatedTickCommands = validateCommands(tickCommands, name);
+        builder.tickCommands(validatedTickCommands);
+        
+        List<String> endCommands = section.getStringList("end-commands");
+        if (endCommands == null) endCommands = new ArrayList<>();
+        List<String> validatedEndCommands = validateCommands(endCommands, name);
+        builder.endCommands(validatedEndCommands);
         
         return builder.build();
     }
@@ -367,13 +398,6 @@ public class TemplateConfig {
         if (template.getMinPlayers() > 0 && template.getMultiplier() == 0 && template.getTeamMultiplier() == 0) {
             validationWarnings.add("Template '" + template.getName() + 
                 "': Min players > 0 but all multipliers are 0, no points will be awarded");
-        }
-        
-        for (String command : template.getCommands()) {
-            if (command.contains("%qqcapture_") && !command.contains(template.getName())) {
-                validationWarnings.add("Template '" + template.getName() + 
-                    "': Command uses placeholder with different template name: " + command);
-            }
         }
         
         return valid;
