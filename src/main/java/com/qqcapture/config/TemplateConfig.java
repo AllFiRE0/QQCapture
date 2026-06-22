@@ -17,12 +17,14 @@ public class TemplateConfig {
     private final Map<String, Template> templates;
     private final List<String> validationErrors;
     private final List<String> validationWarnings;
+    private boolean debugMode; // Добавляем отдельное поле
     
     public TemplateConfig(QQCapture plugin) {
         this.plugin = plugin;
         this.templates = new LinkedHashMap<>();
         this.validationErrors = new ArrayList<>();
         this.validationWarnings = new ArrayList<>();
+        this.debugMode = false;
     }
     
     /**
@@ -46,7 +48,8 @@ public class TemplateConfig {
                     Template template = parseTemplate(templateName, templateSection);
                     if (template != null && validateTemplate(template)) {
                         templates.put(templateName.toLowerCase(), template);
-                        if (plugin.getConfigManager().isDebug()) {
+                        // ИСПРАВЛЕНО: используем debugMode вместо plugin.getConfigManager()
+                        if (debugMode) {
                             plugin.getLogger().info("✓ Loaded template: " + templateName);
                         }
                     }
@@ -75,6 +78,11 @@ public class TemplateConfig {
         
         plugin.getLogger().info("Loaded " + templates.size() + " templates successfully!");
         return templates;
+    }
+    
+    // Добавляем метод для установки режима отладки
+    public void setDebugMode(boolean debug) {
+        this.debugMode = debug;
     }
     
     /**
