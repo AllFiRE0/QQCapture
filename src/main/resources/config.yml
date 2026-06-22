@@ -4,6 +4,16 @@ debug: false
 # Языковые настройки
 language: "ru" # ru, en, zh, ko, ja
 
+# Глобальные настройки по умолчанию (применяются если в шаблоне не указано)
+defaults:
+  tick-capture: 120
+  need-amount: 100000
+  multiplier: 0.00001
+  min-players: 2
+  max-players: 30
+  timer-format: "mm:ss"
+  send-on-rejoin: true
+
 # Шаблоны ивентов
 templates:
   "zona_zahvata":
