@@ -28,26 +28,76 @@ public class CommandManager {
         this.soundPattern = Pattern.compile("^sound! (.+?) (\\d+\\.?\\d*) (\\d+\\.?\\d*)$");
     }
     
-    public void executeCommands(CaptureSession session, List<Player> players) {
-        // ИСПРАВЛЕНО: используем getTickCommands() вместо getCommands()
-        List<String> commands = session.getTemplate().getTickCommands();
+    // ← НОВЫЙ МЕТОД ДЛЯ START КОМАНД
+    public void executeStartCommands(CaptureSession session, List<Player> players) {
+        List<String> commands = session.getTemplate().getStartCommands();
         if (commands == null || commands.isEmpty()) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("No start commands to execute");
+            }
             return;
         }
-        
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Executing " + commands.size() + " start commands for " + players.size() + " players");
+        }
         processCommandsWithDelay(session, players, commands, 0);
+    }
+    
+    // ← НОВЫЙ МЕТОД ДЛЯ TICK КОМАНД
+    public void executeTickCommands(CaptureSession session, List<Player> players) {
+        List<String> commands = session.getTemplate().getTickCommands();
+        if (commands == null || commands.isEmpty()) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("No tick commands to execute");
+            }
+            return;
+        }
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Executing " + commands.size() + " tick commands for " + players.size() + " players");
+        }
+        processCommandsWithDelay(session, players, commands, 0);
+    }
+    
+    // ← НОВЫЙ МЕТОД ДЛЯ END КОМАНД
+    public void executeEndCommands(CaptureSession session, List<Player> players) {
+        List<String> commands = session.getTemplate().getEndCommands();
+        if (commands == null || commands.isEmpty()) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("No end commands to execute");
+            }
+            return;
+        }
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Executing " + commands.size() + " end commands for " + players.size() + " players");
+        }
+        processCommandsWithDelay(session, players, commands, 0);
+    }
+    
+    // СТАРЫЙ МЕТОД - оставляем для обратной совместимости, но он больше не используется
+    @Deprecated
+    public void executeCommands(CaptureSession session, List<Player> players) {
+        executeTickCommands(session, players);
     }
     
     private void processCommandsWithDelay(CaptureSession session, List<Player> players, List<String> commands, int index) {
         if (index >= commands.size()) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("All commands processed");
+            }
             return;
         }
         
         String command = commands.get(index);
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Processing command [" + index + "/" + commands.size() + "]: " + command);
+        }
         
         Matcher delayMatcher = delayPattern.matcher(command);
         if (delayMatcher.matches()) {
             int delay = Integer.parseInt(delayMatcher.group(1));
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Delay " + delay + " seconds");
+            }
             Bukkit.getScheduler().runTaskLater(plugin, 
                 () -> processCommandsWithDelay(session, players, commands, index + 1), 
                 delay * 20L);
@@ -61,13 +111,24 @@ public class CommandManager {
     }
     
     private void executeCommand(CaptureSession session, List<Player> players, String command) {
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Executing command: " + command);
+        }
+        
+        // Check for random
         Matcher randomMatcher = randomPattern.matcher(command);
         if (randomMatcher.matches()) {
             int chance = Integer.parseInt(randomMatcher.group(1));
             if (new Random().nextInt(100) >= chance) {
+                if (plugin.getConfigManager().isDebug()) {
+                    plugin.getLogger().info("Random chance failed: " + chance + "%");
+                }
                 return;
             }
             command = randomMatcher.group(2);
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Random chance passed, executing: " + command);
+            }
         }
         
         // Check for multiple conditions (check:... check:... ! command)
@@ -100,6 +161,10 @@ public class CommandManager {
                 return;
             }
             
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Check conditions: " + conditions.size() + ", command: " + actualCommand);
+            }
+            
             for (Player player : players) {
                 boolean allConditionsMet = true;
                 for (String condition : conditions) {
@@ -109,31 +174,46 @@ public class CommandManager {
                     }
                 }
                 if (allConditionsMet) {
+                    if (plugin.getConfigManager().isDebug()) {
+                        plugin.getLogger().info("All conditions met for player " + player.getName());
+                    }
                     executeSingleCommand(session, players, actualCommand, player);
                 }
             }
             return;
         }
         
+        // Check for single condition (check:condition! command)
         Matcher checkMatcher = checkPattern.matcher(command);
         if (checkMatcher.matches()) {
             String condition = checkMatcher.group(1);
             String actualCommand = checkMatcher.group(2);
             
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Single check condition: " + condition + ", command: " + actualCommand);
+            }
+            
             for (Player player : players) {
                 if (checkCondition(player, condition)) {
+                    if (plugin.getConfigManager().isDebug()) {
+                        plugin.getLogger().info("Condition met for player " + player.getName());
+                    }
                     executeSingleCommand(session, players, actualCommand, player);
                 }
             }
             return;
         }
         
+        // Execute for all players
         executeSingleCommand(session, players, command, null);
     }
     
     private void executeSingleCommand(CaptureSession session, List<Player> players, String command, Player targetPlayer) {
         String[] parts = command.split("! ", 2);
         if (parts.length < 2) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().warning("Invalid command format (missing '! '): " + command);
+            }
             return;
         }
         
@@ -141,6 +221,10 @@ public class CommandManager {
         String content = parts[1];
         
         content = plugin.getPlaceholderManager().parsePlaceholders(targetPlayer, content);
+        
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Executing single command - prefix: " + prefix + ", content: " + content);
+        }
         
         switch (prefix) {
             case "asConsole":
