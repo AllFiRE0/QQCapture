@@ -130,6 +130,7 @@ public class PlaceholderManager {
             property = property.substring(0, fallbackIndex);
         }
         
+        // ===== ИЩЕМ АКТИВНУЮ СЕССИЮ =====
         final String finalTemplateName = templateName;
         CaptureSession session = plugin.getSessionManager().getActiveSessionsMap()
             .values().stream()
@@ -137,12 +138,33 @@ public class PlaceholderManager {
             .findFirst()
             .orElse(null);
         
-        if (session == null) {
-            return fallback.isEmpty() ? "0" : fallback;
+        if (property.startsWith("top_")) {
+            return parseTopPlaceholder(finalTemplateName, session, property, fallback);
         }
         
-        if (property.startsWith("top_")) {
-            return parseTopPlaceholder(session, property, fallback);
+        if (session == null) {
+            // ===== ПРОВЕРЯЕМ ЗАВЕРШЕННУЮ СЕССИЮ =====
+            CaptureSession.SessionSnapshot snapshot = CaptureSession.getCompletedSession(finalTemplateName);
+            if (snapshot != null) {
+                switch (property) {
+                    case "current":
+                        return String.valueOf(snapshot.getTotalPoints());
+                    case "max":
+                        return String.valueOf(snapshot.getTargetPoints());
+                    case "progress":
+                        return String.format("%.1f", (double) snapshot.getTotalPoints() / snapshot.getTargetPoints() * 100);
+                    case "players":
+                        return String.valueOf(snapshot.getContributions().size());
+                    case "time":
+                        long elapsed = System.currentTimeMillis() - snapshot.getEndTime();
+                        return formatTime(elapsed, "mm:ss");
+                    case "participants":
+                        return parseParticipantsPlaceholderFromSnapshot(snapshot, property, fallback);
+                    default:
+                        return fallback.isEmpty() ? "0" : fallback;
+                }
+            }
+            return fallback.isEmpty() ? "0" : fallback;
         }
         
         switch (property) {
@@ -164,10 +186,10 @@ public class PlaceholderManager {
         }
     }
     
-    private String parseTopPlaceholder(CaptureSession session, String property, String fallback) {
+    private String parseTopPlaceholder(String templateName, CaptureSession session, String property, String fallback) {
         String withoutTop = property.substring("top_".length());
-        
         String[] parts = withoutTop.split("_", 2);
+        
         if (parts.length < 2) {
             return fallback.isEmpty() ? "0" : fallback;
         }
@@ -176,21 +198,55 @@ public class PlaceholderManager {
             int position = Integer.parseInt(parts[0]);
             String type = parts[1];
             
-            List<Map.Entry<UUID, PlayerData>> sorted = session.getPlayers().entrySet().stream()
-                .sorted((e1, e2) -> Integer.compare(e2.getValue().getContribution(), e1.getValue().getContribution()))
+            Map<UUID, Integer> contributions = null;
+            Map<UUID, String> playerNames = null;
+            String sessionId = null;
+            
+            // ===== СНАЧАЛА ПРОВЕРЯЕМ АКТИВНУЮ СЕССИЮ =====
+            if (session != null && !session.getPlayers().isEmpty()) {
+                contributions = new HashMap<>();
+                playerNames = new HashMap<>();
+                for (Map.Entry<UUID, PlayerData> entry : session.getPlayers().entrySet()) {
+                    contributions.put(entry.getKey(), entry.getValue().getContribution());
+                    playerNames.put(entry.getKey(), entry.getValue().getPlayerName());
+                }
+                sessionId = session.getSessionId();
+            }
+            
+            // ===== ИЛИ ПРОВЕРЯЕМ ЗАВЕРШЕННУЮ СЕССИЮ =====
+            if (contributions == null || contributions.isEmpty()) {
+                if (templateName != null) {
+                    CaptureSession.SessionSnapshot snapshot = CaptureSession.getCompletedSession(templateName);
+                    if (snapshot != null) {
+                        contributions = snapshot.getContributions();
+                        playerNames = snapshot.getPlayerNames();
+                        sessionId = snapshot.getSessionId();
+                    }
+                }
+            }
+            
+            if (contributions == null || contributions.isEmpty()) {
+                return fallback.isEmpty() ? "0" : fallback;
+            }
+            
+            // Сортируем по вкладу
+            List<Map.Entry<UUID, Integer>> sorted = contributions.entrySet().stream()
+                .sorted((e1, e2) -> Integer.compare(e2.getValue(), e1.getValue()))
                 .toList();
             
             if (position > sorted.size()) {
                 return fallback.isEmpty() ? "0" : fallback;
             }
             
-            Map.Entry<UUID, PlayerData> entry = sorted.get(position - 1);
+            Map.Entry<UUID, Integer> entry = sorted.get(position - 1);
             OfflinePlayer topPlayer = Bukkit.getOfflinePlayer(entry.getKey());
             
             if (type.equals("name")) {
+                String name = playerNames != null ? playerNames.get(entry.getKey()) : null;
+                if (name != null && !name.isEmpty()) return name;
                 return topPlayer.getName() != null ? topPlayer.getName() : fallback;
             } else if (type.equals("value") || type.equals("points")) {
-                return String.valueOf(entry.getValue().getContribution());
+                return String.valueOf(entry.getValue());
             }
             
         } catch (NumberFormatException e) {
@@ -215,6 +271,27 @@ public class PlaceholderManager {
             .map(PlayerData::getPlayerName)
             .filter(name -> name != null && !name.isEmpty())
             .toList();
+        
+        if (names.isEmpty()) {
+            return fallback.isEmpty() ? "" : fallback;
+        }
+        
+        return String.join(separator, names);
+    }
+    
+    private String parseParticipantsPlaceholderFromSnapshot(CaptureSession.SessionSnapshot snapshot, String property, String fallback) {
+        String separator = property.substring("participants".length());
+        
+        if (separator.startsWith("_")) {
+            separator = separator.substring(1);
+        }
+        
+        if (separator.isEmpty() || separator.equals("_")) {
+            separator = " ";
+        }
+        
+        List<String> names = new ArrayList<>(snapshot.getPlayerNames().values());
+        names.removeIf(name -> name == null || name.isEmpty());
         
         if (names.isEmpty()) {
             return fallback.isEmpty() ? "" : fallback;
