@@ -6,69 +6,57 @@ language: "ru" # ru, en, zh, ko, ja
 
 # Глобальные настройки по умолчанию (применяются если в шаблоне не указано)
 defaults:
-  tick-capture: 120
+  tick-capture: 20
   need-amount: 100000
-  multiplier: 0.00001
-  min-players: 2
-  max-players: 30
+  multiplier: 0.01
+  min-players: 1
+  max-players: 5
   timer-format: "mm:ss"
   send-on-rejoin: true
 
 # Шаблоны ивентов
 templates:
-  "zona_zahvata":
+  "zona-zahvata":
     bossbar:
-      enabled: true                                      # Включить/отключить боссбар
+      enabled: true
       color: "GREEN"
-      update-interval-ticks: 20                          # Интервал обновления боссбара в тиках
+      update-interval-ticks: 20
       start-text: "<gradient:#00FF00:#55FF55>Начинаем захват зоны!</gradient>"
       progress-text: "<gradient:#FF0000:#FFAA00>Захват: %current%/%max% (%progress%%%)</gradient>"
       end-text: "<gradient:#FF5555:#FF0000>Захват завершен!</gradient>"
-      segments: 12                                       # Количество сегментов (1, 6, 10, 12, 20)
-      update-ticks: 5                                    # Частота обновления в тиках
-      start-delay: 3                                     # Задержка показа стартового боссбара в секундах
-      end-delay: 3                                       # Задержка показа финального боссбара в секундах
-      timer-format: "mm:ss"                              # Формат таймера (HH:mm:ss, mm:ss, HH:mm, ss)
-      send-on-rejoin: true                               # Отправлять боссбар при перезаходе игрока
+      segments: 12
+      update-ticks: 5
+      start-delay: 1
+      end-delay: 1
+      timer-format: "mm:ss"
+      send-on-rejoin: true
       text: "Захват зоны: %current%/%max% (Участников: %players% Групп: %groups%)"
-    # Условия для игроков
-    condition: ""                                         # Проверки у игрока, например %player_level%>=10
-    all-players-condition: ""                             # Проверка для всех игроков в зоне
-    # Правила с проверками
+    condition: ""
+    all-players-condition: ""
     rules: {}
-      # rules1:
-      #   type: "%vault_eco_balance%"
-      #   value: ">= 1500"
-      # rules2:
-      #   type: "%clan_name%"
-      #   value: "!~ %clan_name%"
-    permission: ""                                       # Права для участия, например "qqcapture.шаблон.participate"
-    # Ограничения по игрокам
-    min-players: 2                                       # Минимальное количество игроков
-    max-players: 30                                      # Максимальное количество игроков (0 = без ограничений)
-    # Настройки захвата
-    need-amount: 100000                                  # Количество очков для захвата
-    tick-capture: 120                                    # Интервал начисления очков в тиках
-    multiplier: 0.00001                                  # Множитель для каждого игрока
-    # Командный множитель
-    type-team-multiplier: "individual"                   # Тип: individual, shared, disabled
-    team-multiplier: 0.0                                 # Множитель для команды
-    # Зона захвата
-    pos1: "0,0,0"                                        # Координаты первой точки
-    pos2: "0,-1,0"                                       # Координаты второй точки
-    region-name: ""                                      # Название региона WorldGuard
-    region-flags: ""                                     # Флаги региона, например {pvp: deny}
-    # Максимальная длительность (в секундах, 0 = без ограничения)
+    permission: ""
+    min-players: 1
+    max-players: 30
+    need-amount: 10000000
+    tick-capture: 20
+    multiplier: 0.1
+    type-team-multiplier: "individual"
+    team-multiplier: 0.0
+    pos1: "1070,71,-4214"
+    pos2: "1037,62,-4244"
+    region-name: ""
+    region-flags: ""
     max-duration: 0
-    # Команды при старте ивента
+    # Настройки хранения топов
+    top-storage-enabled: true
+    top-storage-duration: 300
+    top-auto-clear-on-start: true
     start-commands:
       - "gMessage! &aИвент захвата зоны начался!"
-    # Команды при каждом тике захвата
-    tick-commands:
-      - "check:%qqcapture_zona_zahvata_current%>=100000! asConsole! eco give %qqcapture_zona_zahvata_top_1_name% 10000"
-    # Команды при завершении ивента
+    tick-commands: []
+      #- "check:%qqcapture_zona-zahvata_current%>=10000! asConsole! eco give %qqcapture_zona-zahvata_top_1_name% 10000"
     end-commands:
-      - "gMessage! &aЗона захвачена! Победитель: %qqcapture_zona_zahvata_top_1_name%"
+      - "gMessage! &aЗона захвачена! Победитель: %qqcapture_zona-zahvata_top_1_name_&6Нет победителя%"
       - "delay! 3"
       - "sound! BLOCK_ANVIL_PLACE 1.0 1.0"
-      - "title! {#FFFFFF}Победа\n{#FF000}Захват завершен!"
+      - "title:30:60:30! {#FFFFFF}Победа\n{#FF0000}Захват завершен!"
