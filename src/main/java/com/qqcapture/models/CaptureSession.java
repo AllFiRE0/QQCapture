@@ -32,9 +32,8 @@ public class CaptureSession {
     
     // ===== КЭШ ЗАВЕРШЕННЫХ СЕССИЙ =====
     private static final Map<String, SessionSnapshot> completedSessions = new ConcurrentHashMap<>();
-    private static final long SNAPSHOT_LIFETIME = 60000; // 60 секунд
+    private static final long SNAPSHOT_LIFETIME = 60000;
     
-    // ===== ВНУТРЕННИЙ КЛАСС ДЛЯ ХРАНЕНИЯ ДАННЫХ =====
     public static class SessionSnapshot {
         private final String templateName;
         private final int totalPoints;
@@ -74,7 +73,6 @@ public class CaptureSession {
         public String getSessionId() { return sessionId; }
     }
     
-    // ===== МЕТОД ДЛЯ ПОЛУЧЕНИЯ СНЕПШОТА ПО ИМЕНИ ШАБЛОНА =====
     public static SessionSnapshot getCompletedSession(String templateName) {
         for (SessionSnapshot snapshot : completedSessions.values()) {
             if (snapshot.isValid() && snapshot.templateName.equalsIgnoreCase(templateName)) {
@@ -108,6 +106,14 @@ public class CaptureSession {
         this.complete = false;
         this.tickCounter = 0;
         this.lastCaptureTick = 0;
+        
+        // ===== ОЧИЩАЕМ СТАРЫЙ ТОП ПЕРЕД ЗАПУСКОМ =====
+        if (template.isTopAutoClearOnStart()) {
+            QQCapture.getInstance().getTopStorageManager().clearTop(template.getName());
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Old top data cleared for template: " + template.getName());
+            }
+        }
         
         startBossBarWithDelay();
         startCaptureTask();
@@ -357,6 +363,23 @@ public class CaptureSession {
     }
     
     private void onComplete(List<Player> playersInZone) {
+        // ===== СОХРАНЯЕМ ТОП =====
+        if (template.isTopStorageEnabled() && !players.isEmpty()) {
+            List<TopStorageManager.TopEntry> entries = new ArrayList<>();
+            for (Map.Entry<UUID, PlayerData> entry : players.entrySet()) {
+                UUID uuid = entry.getKey();
+                PlayerData data = entry.getValue();
+                Player player = Bukkit.getPlayer(uuid);
+                String name = player != null ? player.getName() : data.getPlayerName();
+                entries.add(new TopStorageManager.TopEntry(name, uuid, data.getContribution()));
+            }
+            
+            entries.sort((e1, e2) -> Integer.compare(e2.getPoints(), e1.getPoints()));
+            
+            int duration = template.getTopStorageDuration();
+            QQCapture.getInstance().getTopStorageManager().saveTop(template.getName(), entries, duration);
+        }
+        
         // ===== СОХРАНЯЕМ СНЕПШОТ =====
         SessionSnapshot snapshot = new SessionSnapshot(this);
         completedSessions.put(sessionId, snapshot);
@@ -365,13 +388,12 @@ public class CaptureSession {
             plugin.getLogger().info("Session snapshot saved: " + sessionId + " (" + snapshot.getContributions().size() + " players)");
         }
         
-        // Удаляем через 60 секунд
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             completedSessions.remove(sessionId);
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("Session snapshot removed: " + sessionId);
             }
-        }, 1200L); // 60 секунд * 20 тиков
+        }, 1200L);
         
         // ===== ВЫПОЛНЯЕМ END КОМАНДЫ =====
         List<String> endCommands = template.getEndCommands();
