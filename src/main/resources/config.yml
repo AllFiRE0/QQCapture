@@ -1,0 +1,48 @@
+# Конфигурация плагина QQCapture
+debug: false
+
+# Языковые настройки
+language: "ru" # ru, en, zh, ko, ja
+
+# Шаблоны ивентов
+templates:
+  "zona_zahvata":
+    bossbar:
+      color: "GREEN"
+      обновлять-боссбар-каждые-N-тиков: 20
+      start-text: "<gradient:#00FF00:#55FF55>Начинаем захват зоны!</gradient>"
+      progress-text: "<gradient:#FF0000:#FFAA00>Захват: %current%/%max% (%progress%%%)</gradient>"
+      end-text: "<gradient:#FF5555:#FF0000>Захват завершен!</gradient>"
+      segments: 12
+      update-ticks: 5
+      start-delay: 3
+      end-delay: 3
+      timer-format: "mm:ss"
+      отправлять-боссбар-когда-игрок-перезаходит-на-сервер: true
+      текст-боссбара: "Захват зоны: %current%/%max% (Участников: %players% Групп: %groups%)"
+    
+    condition: ""
+    all-players-condition: ""
+    
+    permission: ""
+    min-players: 2
+    max-players: 30
+    need-amount: 100000
+    tick-capture: 120
+    multiplier: 0.00001
+    
+    type-team-multiplier: "индивидуально"
+    team-multiplier: 0.0
+    
+    pos1: "0,0,0"
+    pos2: "0,-1,0"
+    region-name: ""
+    region-flags: ""
+    
+    tick-command: false
+    commands:
+      - "check:%qqcapture_zona_zahvata_current%>=100000! asConsole! eco give %qqcapture_zona_zahvata_top_1_name% 10000"
+      - "delay! 3"
+      - "gMessage! &aЗона захвачена! Победитель: %qqcapture_zona_zahvata_top_1_name%"
+      - "sound! BLOCK_ANVIL_PLACE 1.0 1.0"
+      - "title! {#FFFFFF}Победа\n{#FF000}Захват завершен!"
