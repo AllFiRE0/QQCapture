@@ -28,6 +28,10 @@ repositories {
         url = 'https://repo.extendedclip.com/content/repositories/placeholderapi/'
     }
     maven {
+        name = 'helpch'  // ← НОВЫЙ РЕПОЗИТОРИЙ
+        url = 'https://repo.helpch.at/releases/'
+    }
+    maven {
         name = 'sonatype'
         url = 'https://oss.sonatype.org/content/groups/public/'
     }
@@ -48,8 +52,8 @@ dependencies {
     // Vault
     compileOnly 'net.milkbowl.vault:VaultAPI:1.7'
     
-    // PlaceholderAPI - БЕЗ УКАЗАНИЯ ВЕРСИИ
-    compileOnly 'me.clip:placeholderapi'  // ← ИЗМЕНЕНО - БЕЗ ВЕРСИИ
+    // PlaceholderAPI - НОВАЯ ВЕРСИЯ 2.12.2
+    compileOnly 'me.clip:placeholderapi:2.12.2'  // ← ИЗМЕНЕНО
     
     // SnakeYAML для работы с YAML
     implementation 'org.yaml:snakeyaml:2.2'
