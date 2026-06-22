@@ -96,8 +96,9 @@ public class CaptureSession {
         
         // Check maximum players
         int maxPlayers = template.getMaxPlayers();
+        List<Player> activePlayers = playersInZone;
         if (maxPlayers > 0 && playersInZone.size() > maxPlayers) {
-            playersInZone = playersInZone.subList(0, maxPlayers);
+            activePlayers = new ArrayList<>(playersInZone.subList(0, maxPlayers));
         }
         
         // Calculate capture points
