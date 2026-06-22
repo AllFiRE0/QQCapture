@@ -34,7 +34,6 @@ public class CommandManager {
             return;
         }
         
-        // Process commands with delay
         processCommandsWithDelay(session, players, commands, 0);
     }
     
@@ -45,7 +44,6 @@ public class CommandManager {
         
         String command = commands.get(index);
         
-        // Check for delay
         Matcher delayMatcher = delayPattern.matcher(command);
         if (delayMatcher.matches()) {
             int delay = Integer.parseInt(delayMatcher.group(1));
@@ -55,10 +53,8 @@ public class CommandManager {
             return;
         }
         
-        // Execute command
         executeCommand(session, players, command);
         
-        // Continue to next command
         Bukkit.getScheduler().runTask(plugin, 
             () -> processCommandsWithDelay(session, players, commands, index + 1));
     }
@@ -74,13 +70,58 @@ public class CommandManager {
             command = randomMatcher.group(2);
         }
         
-        // Check for condition
+        // Check for multiple conditions (check:... check:... ! command)
+        if (command.startsWith("check:")) {
+            List<String> conditions = new ArrayList<>();
+            String remaining = command;
+            String actualCommand = "";
+            
+            while (remaining.startsWith("check:")) {
+                int nextCheck = remaining.indexOf(" check:", 1);
+                int firstExclamation = remaining.indexOf("! ");
+                
+                if (nextCheck > 0 && nextCheck < firstExclamation) {
+                    String condition = remaining.substring(6, nextCheck).trim();
+                    conditions.add(condition);
+                    remaining = remaining.substring(nextCheck);
+                } else if (firstExclamation > 0) {
+                    String condition = remaining.substring(6, firstExclamation).trim();
+                    conditions.add(condition);
+                    actualCommand = remaining.substring(firstExclamation + 2).trim();
+                    break;
+                } else {
+                    plugin.getLogger().warning("Invalid check format: " + command);
+                    return;
+                }
+            }
+            
+            if (conditions.isEmpty() || actualCommand.isEmpty()) {
+                plugin.getLogger().warning("Empty conditions or command in check: " + command);
+                return;
+            }
+            
+            // Выполняем команду для каждого игрока, у которого все условия выполнены
+            for (Player player : players) {
+                boolean allConditionsMet = true;
+                for (String condition : conditions) {
+                    if (!checkCondition(player, condition)) {
+                        allConditionsMet = false;
+                        break;
+                    }
+                }
+                if (allConditionsMet) {
+                    executeSingleCommand(session, players, actualCommand, player);
+                }
+            }
+            return;
+        }
+        
+        // Check for single condition (check:condition! command)
         Matcher checkMatcher = checkPattern.matcher(command);
         if (checkMatcher.matches()) {
             String condition = checkMatcher.group(1);
             String actualCommand = checkMatcher.group(2);
             
-            // Check condition
             for (Player player : players) {
                 if (checkCondition(player, condition)) {
                     executeSingleCommand(session, players, actualCommand, player);
@@ -94,7 +135,6 @@ public class CommandManager {
     }
     
     private void executeSingleCommand(CaptureSession session, List<Player> players, String command, Player targetPlayer) {
-        // Parse command prefix
         String[] parts = command.split("! ", 2);
         if (parts.length < 2) {
             return;
@@ -103,7 +143,6 @@ public class CommandManager {
         String prefix = parts[0];
         String content = parts[1];
         
-        // Replace placeholders
         content = plugin.getPlaceholderManager().parsePlaceholders(targetPlayer, content);
         
         switch (prefix) {
@@ -200,10 +239,7 @@ public class CommandManager {
     }
     
     private boolean checkCondition(Player player, String condition) {
-        Template tempTemplate = new Template.Builder("temp")
-            .condition(condition)
-            .build();
-        return plugin.getConditionManager().checkPlayerConditions(player, tempTemplate);
+        return plugin.getConditionManager().evaluateCondition(player, condition);
     }
     
     private void executeSound(Player player, String soundString) {
