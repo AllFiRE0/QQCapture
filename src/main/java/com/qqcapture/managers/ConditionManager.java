@@ -80,7 +80,7 @@ public class ConditionManager {
         return true;
     }
     
-    private boolean evaluateCondition(Player player, String condition) {
+    public boolean evaluateCondition(Player player, String condition) {
         // Handle AND operator
         if (condition.contains("&&")) {
             String[] parts = condition.split("&&");
