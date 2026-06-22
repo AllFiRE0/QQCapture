@@ -179,6 +179,10 @@ public class TemplateConfig {
         // --- Player limits ---
         int minPlayers = section.getInt("min-players", -1);
         if (minPlayers < 0) {
+            // Если не указано в шаблоне - берем из defaults
+            minPlayers = plugin.getConfigManager().getDefaultMinPlayers();
+        }
+        if (minPlayers < 0) {
             validationWarnings.add("Template '" + name + "': Min players cannot be negative (" + minPlayers + "), using 0");
             minPlayers = 0;
         }
