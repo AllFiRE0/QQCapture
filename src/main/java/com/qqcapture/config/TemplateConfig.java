@@ -559,9 +559,9 @@ public class TemplateConfig {
      * Проверяет валидность типа командного множителя
      */
     private boolean isValidTeamMultiplierType(String type) {
-        return type.equalsIgnoreCase("индивидуально") || 
-               type.equalsIgnoreCase("общий") || 
-               type.equalsIgnoreCase("выключено");
+        return type.equalsIgnoreCase("individual") || 
+               type.equalsIgnoreCase("shared") || 
+               type.equalsIgnoreCase("disabled");
     }
     
     /**
