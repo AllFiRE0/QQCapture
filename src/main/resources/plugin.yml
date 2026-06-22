@@ -15,7 +15,6 @@ commands:
     aliases: [qqc]
 
 permissions:
-  # Основные права
   qqcapture.admin:
     description: Allows use of all admin commands
     default: op
@@ -25,8 +24,8 @@ permissions:
       qqcapture.admin.stop: true
       qqcapture.admin.list: true
       qqcapture.admin.info: true
+      qqcapture.admin.top: true
   
-  # Права на отдельные подкоманды
   qqcapture.admin.reload:
     description: Reload configuration and languages
     default: op
@@ -47,12 +46,14 @@ permissions:
     description: View template information
     default: op
   
-  # Право на участие в ивентах (проверяется в шаблонах)
+  qqcapture.admin.top:
+    description: Manage top data
+    default: op
+  
   qqcapture.participate:
     description: Allows participation in capture events
     default: true
   
-  # Wildcard право (все права)
   qqcapture.*:
     description: All permissions
     default: op
