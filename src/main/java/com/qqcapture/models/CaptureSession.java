@@ -289,12 +289,19 @@ public class CaptureSession {
     
     public void addPlayer(Player player) {
         if (!players.containsKey(player.getUniqueId())) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Adding player " + player.getName() + " to session data for " + sessionId);
+            }
             players.put(player.getUniqueId(), new PlayerData(player));
             if (template.isBossBarEnabled()) {
+                if (plugin.getConfigManager().isDebug()) {
+                    plugin.getLogger().info("Showing boss bar for player " + player.getName());
+                }
                 QQCapture.getInstance().getBossBarManager().showBossBar(player, this);
             }
+        } else {
             if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Player " + player.getName() + " added to session with bossbar: " + template.isBossBarEnabled());
+                plugin.getLogger().info("Player " + player.getName() + " already in session " + sessionId);
             }
         }
     }
