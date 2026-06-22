@@ -3,6 +3,7 @@ package com.qqcapture.managers;
 import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.Template;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -31,12 +32,24 @@ public class SessionManager {
             return false;
         }
         
+        // Проверяем, есть ли уже активная сессия этого шаблона
+        String baseTemplateName = templateName;
+        CaptureSession existingSession = findExistingSession(baseTemplateName);
+        
+        if (existingSession != null) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Stopping existing session for template: " + baseTemplateName);
+            }
+            existingSession.stopSilently();
+            activeSessions.remove(existingSession.getSessionId());
+            playerSessions.entrySet().removeIf(entry -> entry.getValue().equals(existingSession.getSessionId()));
+            plugin.getBossBarManager().removeBossBar(existingSession.getSessionId());
+        }
+        
         String sessionId = generateSessionId(templateName);
         CaptureSession session = new CaptureSession(sessionId, template, points, silent, starter);
         
         activeSessions.put(sessionId, session);
-        
-        // Start session task
         startSessionTask(sessionId);
         
         plugin.getLogger().info("Session started: " + sessionId + " by " + starter.getName());
@@ -51,16 +64,50 @@ public class SessionManager {
             return false;
         }
         
+        // Получаем базовое имя шаблона (без _override)
+        String templateName = template.getName();
+        String baseTemplateName = templateName;
+        if (baseTemplateName.endsWith("_override")) {
+            baseTemplateName = baseTemplateName.substring(0, baseTemplateName.length() - 9);
+        }
+        
+        // Проверяем, есть ли уже активная сессия этого шаблона
+        CaptureSession existingSession = findExistingSession(baseTemplateName);
+        
+        if (existingSession != null) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Stopping existing session for template: " + baseTemplateName);
+            }
+            existingSession.stopSilently();
+            activeSessions.remove(existingSession.getSessionId());
+            playerSessions.entrySet().removeIf(entry -> entry.getValue().equals(existingSession.getSessionId()));
+            plugin.getBossBarManager().removeBossBar(existingSession.getSessionId());
+        }
+        
         String sessionId = generateSessionId(template.getName());
         CaptureSession session = new CaptureSession(sessionId, template, template.getNeedAmount(), silent, starter);
         
         activeSessions.put(sessionId, session);
-        
-        // Start session task
         startSessionTask(sessionId);
         
         plugin.getLogger().info("Session started: " + sessionId + " by " + starter.getName());
         return true;
+    }
+    
+    /**
+     * Поиск существующей сессии по имени шаблона
+     */
+    private CaptureSession findExistingSession(String templateName) {
+        for (CaptureSession s : activeSessions.values()) {
+            String name = s.getTemplate().getName();
+            if (name.endsWith("_override")) {
+                name = name.substring(0, name.length() - 9);
+            }
+            if (name.equalsIgnoreCase(templateName)) {
+                return s;
+            }
+        }
+        return null;
     }
     
     public void stopSession(String sessionId) {
@@ -69,15 +116,12 @@ public class SessionManager {
             session.stop();
             activeSessions.remove(sessionId);
             
-            // Stop task
             BukkitRunnable task = sessionTasks.remove(sessionId);
             if (task != null) {
                 task.cancel();
             }
             
-            // Clear player sessions
             playerSessions.entrySet().removeIf(entry -> entry.getValue().equals(sessionId));
-            
             plugin.getBossBarManager().removeBossBar(sessionId);
         }
     }
@@ -99,17 +143,14 @@ public class SessionManager {
                     return;
                 }
                 
-                // Update session
                 session.update();
                 
-                // Check if session is complete
                 if (session.isComplete()) {
                     plugin.getSessionManager().stopSession(sessionId);
                 }
             }
         };
         
-        // Run every tick
         task.runTaskTimer(plugin, 0L, 1L);
         sessionTasks.put(sessionId, task);
     }
