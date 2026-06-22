@@ -25,7 +25,7 @@ public class PlayerListener implements Listener {
         for (CaptureSession session : plugin.getSessionManager().getActiveSessions()) {
             Template template = session.getTemplate();
             if (template.isBossBarEnabled() && template.isSendOnRejoin()) {
-                if (isPlayerInZone(player, session)) {
+                if (template.isInAnyZone(player.getLocation())) {
                     plugin.getBossBarManager().showBossBar(player, session);
                     if (!session.getPlayers().containsKey(player.getUniqueId())) {
                         plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
@@ -62,7 +62,8 @@ public class PlayerListener implements Listener {
                 continue;
             }
             
-            boolean nowInZone = isPlayerInZone(player, session);
+            Template template = session.getTemplate();
+            boolean nowInZone = template.isInAnyZone(player.getLocation());
             boolean isInSession = session.getPlayers().containsKey(player.getUniqueId());
             
             if (plugin.getConfigManager().isDebug()) {
@@ -72,7 +73,6 @@ public class PlayerListener implements Listener {
             if (nowInZone && !isInSession) {
                 onPlayerEnterZone(player, session);
             } else if (nowInZone && isInSession) {
-                Template template = session.getTemplate();
                 if (template.isBossBarEnabled()) {
                     plugin.getBossBarManager().showBossBar(player, session);
                 }
@@ -142,49 +142,5 @@ public class PlayerListener implements Listener {
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("Player " + player.getName() + " left zone for session " + session.getSessionId());
         }
-    }
-    
-    private boolean isPlayerInZone(Player player, CaptureSession session) {
-        if (session == null) {
-            return false;
-        }
-        
-        Template template = session.getTemplate();
-        Location loc = player.getLocation();
-        Location pos1 = template.getPos1();
-        Location pos2 = template.getPos2();
-        
-        if (pos1 == null || pos2 == null || pos1.getWorld() == null) {
-            return false;
-        }
-        
-        if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Checking player " + player.getName() + " at " + 
-                loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ());
-            plugin.getLogger().info("Zone: " + 
-                pos1.getBlockX() + "," + pos1.getBlockY() + "," + pos1.getBlockZ() + " to " +
-                pos2.getBlockX() + "," + pos2.getBlockY() + "," + pos2.getBlockZ());
-        }
-        
-        if (!template.getRegionName().isEmpty()) {
-            return plugin.getRegionManager().isPlayerInRegion(loc, template.getRegionName());
-        }
-        
-        double minX = Math.min(pos1.getX(), pos2.getX());
-        double maxX = Math.max(pos1.getX(), pos2.getX());
-        double minY = Math.min(pos1.getY(), pos2.getY());
-        double maxY = Math.max(pos1.getY(), pos2.getY());
-        double minZ = Math.min(pos1.getZ(), pos2.getZ());
-        double maxZ = Math.max(pos1.getZ(), pos2.getZ());
-        
-        boolean inZone = loc.getX() >= minX && loc.getX() <= maxX &&
-                         loc.getY() >= minY && loc.getY() <= maxY &&
-                         loc.getZ() >= minZ && loc.getZ() <= maxZ;
-        
-        if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Player " + player.getName() + " in zone: " + inZone);
-        }
-        
-        return inZone;
     }
 }
