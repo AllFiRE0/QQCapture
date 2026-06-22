@@ -29,6 +29,7 @@ public class CaptureSession {
     private BukkitRunnable durationTask;
     
     public CaptureSession(String sessionId, Template template, int targetPoints, boolean silent, Player starter) {
+        this.plugin = QQCapture.getInstance();
         this.sessionId = sessionId;
         this.template = template;
         this.targetPoints = targetPoints;
