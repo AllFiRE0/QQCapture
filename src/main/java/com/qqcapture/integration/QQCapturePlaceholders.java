@@ -121,29 +121,56 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             return "";
         }
         
-        // Полная поддержка всех заполнителей из getPlaceholders()
-        // Формат: qqcapture_<параметр>
-        // Например: qqcapture_current, qqcapture_top_1_name, qqcapture_zona_zahvata_current
+        // Убираем префикс "qqcapture_"
+        String withoutPrefix = identifier;
+        if (identifier.startsWith("qqcapture_")) {
+            withoutPrefix = identifier.substring("qqcapture_".length());
+        }
         
-        // Проверяем, есть ли активная сессия у игрока
-        CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
+        // Список возможных свойств
+        String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants"};
         
-        // Проверяем, не содержит ли identifier имя шаблона
-        // Формат: qqcapture_<templateName>_<параметр>
         String templateName = null;
-        String actualIdentifier = identifier;
+        String property = null;
+        String fallback = "";
         
-        // Проверяем все шаблоны
-        for (String name : plugin.getConfigManager().getTemplateNames()) {
-            if (identifier.startsWith(name + "_")) {
-                templateName = name;
-                actualIdentifier = identifier.substring(name.length() + 1);
+        // Ищем первое совпадение свойства
+        for (String prop : properties) {
+            int index = withoutPrefix.indexOf(prop);
+            if (index > 0) {
+                templateName = withoutPrefix.substring(0, index);
+                property = withoutPrefix.substring(index + 1);
                 break;
             }
         }
         
-        // Если указан конкретный шаблон, ищем его сессию
-        CaptureSession targetSession = session;
+        // Если это общий плейсхолдер без шаблона
+        if (templateName == null) {
+            // Проверяем, может это общий плейсхолдер (current, max, progress, players, template, time)
+            String[] generalProps = {"current", "max", "progress", "players", "template", "time", "session_", "top_", "participants"};
+            for (String prop : generalProps) {
+                if (withoutPrefix.startsWith(prop)) {
+                    property = withoutPrefix;
+                    break;
+                }
+            }
+        }
+        
+        // Если не нашли свойство - возвращаем fallback
+        if (property == null) {
+            return handleFallback(withoutPrefix);
+        }
+        
+        // Проверяем наличие fallback в property
+        int fallbackIndex = property.indexOf("_&");
+        if (fallbackIndex > 0) {
+            fallback = property.substring(fallbackIndex + 2);
+            property = property.substring(0, fallbackIndex);
+        }
+        
+        // Ищем сессию
+        CaptureSession targetSession = null;
+        
         if (templateName != null) {
             // Ищем сессию с указанным шаблоном
             for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
@@ -152,16 +179,18 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
                     break;
                 }
             }
+        } else {
+            // Берем сессию игрока
+            targetSession = plugin.getSessionManager().getPlayerSession(player);
         }
         
-        // Если нет сессии, возвращаем fallback или пустоту
         if (targetSession == null) {
-            return handleFallback(actualIdentifier);
+            return handleFallback(property);
         }
         
         // Обработка session_* заполнителей
-        if (actualIdentifier.startsWith("session_")) {
-            String[] parts = actualIdentifier.split("_", 2);
+        if (property.startsWith("session_")) {
+            String[] parts = property.split("_", 2);
             if (parts.length == 2) {
                 String key = parts[1];
                 PlayerData data = targetSession.getPlayers().get(player.getUniqueId());
@@ -182,7 +211,7 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         }
         
         // Основные заполнители
-        switch (actualIdentifier) {
+        switch (property) {
             case "current":
                 return String.valueOf(targetSession.getCurrentPoints());
             case "max":
@@ -199,21 +228,19 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         }
         
         // Топ заполнители
-        if (actualIdentifier.startsWith("top_")) {
-            return parseTopPlaceholder(targetSession, actualIdentifier);
+        if (property.startsWith("top_")) {
+            return parseTopPlaceholder(targetSession, property, fallback);
         }
         
         // Участники
-        if (actualIdentifier.startsWith("participants")) {
-            return parseParticipantsPlaceholder(targetSession, actualIdentifier);
+        if (property.startsWith("participants")) {
+            return parseParticipantsPlaceholder(targetSession, property, fallback);
         }
         
-        // Если ничего не подошло, пытаемся обработать fallback
-        return handleFallback(actualIdentifier);
+        return handleFallback(property);
     }
     
     private String handleFallback(String identifier) {
-        // Проверяем, есть ли fallback
         int fallbackIndex = identifier.indexOf("_&");
         if (fallbackIndex > 0) {
             return identifier.substring(fallbackIndex + 2);
@@ -221,26 +248,19 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         return "";
     }
     
-    private String parseTopPlaceholder(CaptureSession session, String identifier) {
-        // Проверяем наличие fallback
-        String fallback = "";
-        String cleanIdentifier = identifier;
-        int fallbackIndex = identifier.indexOf("_&");
-        if (fallbackIndex > 0) {
-            fallback = identifier.substring(fallbackIndex + 2);
-            cleanIdentifier = identifier.substring(0, fallbackIndex);
-        }
+    private String parseTopPlaceholder(CaptureSession session, String property, String fallback) {
+        // Формат: top_X_name или top_X_value или top_X_points
+        String withoutTop = property.substring("top_".length());
         
-        String[] parts = cleanIdentifier.split("_");
-        if (parts.length < 3) {
+        String[] parts = withoutTop.split("_", 2);
+        if (parts.length < 2) {
             return fallback.isEmpty() ? "0" : fallback;
         }
         
         try {
-            int position = Integer.parseInt(parts[1]);
-            String type = parts[2];
+            int position = Integer.parseInt(parts[0]);
+            String type = parts[1];
             
-            // Получаем топ игроков
             List<Map.Entry<UUID, PlayerData>> sorted = session.getPlayers().entrySet().stream()
                 .sorted((e1, e2) -> Integer.compare(e2.getValue().getContribution(), e1.getValue().getContribution()))
                 .toList();
@@ -269,23 +289,14 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         return fallback.isEmpty() ? "0" : fallback;
     }
     
-    private String parseParticipantsPlaceholder(CaptureSession session, String identifier) {
-        // Проверяем наличие fallback
-        String fallback = "";
-        String cleanIdentifier = identifier;
-        int fallbackIndex = identifier.indexOf("_&");
-        if (fallbackIndex > 0) {
-            fallback = identifier.substring(fallbackIndex + 2);
-            cleanIdentifier = identifier.substring(0, fallbackIndex);
+    private String parseParticipantsPlaceholder(CaptureSession session, String property, String fallback) {
+        String separator = property.substring("participants".length());
+        
+        if (separator.startsWith("_")) {
+            separator = separator.substring(1);
         }
         
-        String[] parts = cleanIdentifier.split("_", 2);
-        String separator = parts.length > 1 ? parts[1] : " ";
-        
-        // Обработка цветных разделителей
-        if (separator.startsWith("&") || separator.startsWith("#") || separator.startsWith("<")) {
-            // Это цветной разделитель, оставляем как есть
-        } else if (separator.isEmpty() || separator.equals("_")) {
+        if (separator.isEmpty() || separator.equals("_")) {
             separator = " ";
         }
         
