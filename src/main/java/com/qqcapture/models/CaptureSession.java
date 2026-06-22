@@ -27,8 +27,8 @@ public class CaptureSession {
     private BukkitRunnable bossBarTask;
     private BukkitRunnable captureTask;
     private BukkitRunnable durationTask;
-    private BukkitRunnable startDelayTask;  // ← ДОБАВЛЕНО
-    private BukkitRunnable endDelayTask;    // ← ДОБАВЛЕНО
+    private BukkitRunnable startDelayTask;
+    private BukkitRunnable endDelayTask;
     
     public CaptureSession(String sessionId, Template template, int targetPoints, boolean silent, Player starter) {
         this.plugin = QQCapture.getInstance();
@@ -45,19 +45,11 @@ public class CaptureSession {
         this.tickCounter = 0;
         this.lastCaptureTick = 0;
         
-        // Start boss bar with delay
         startBossBarWithDelay();
-        
-        // Start capture task
         startCaptureTask();
-        
-        // Start duration task if maxDuration is set
         startDurationTask();
-        
-        // Execute start commands
         executeStartCommands();
 
-        // ← НОВЫЙ БЛОК: Добавляем игроков, уже находящихся в зоне
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (isInZone(player.getLocation(), template.getPos1(), template.getPos2())) {
                 if (!players.containsKey(player.getUniqueId())) {
@@ -69,7 +61,6 @@ public class CaptureSession {
             }
         }
         
-        // Initialize region if needed
         if (!template.getRegionName().isEmpty()) {
             QQCapture.getInstance().getRegionManager().setupRegion(this);
         }
@@ -161,8 +152,17 @@ public class CaptureSession {
     private void executeStartCommands() {
         List<String> commands = template.getStartCommands();
         if (commands != null && !commands.isEmpty()) {
+            plugin.getLogger().info("Executing " + commands.size() + " start commands");
+            for (String cmd : commands) {
+                plugin.getLogger().info("  Start command: " + cmd);
+            }
             List<Player> allPlayers = new ArrayList<>(Bukkit.getOnlinePlayers());
-            QQCapture.getInstance().getCommandManager().executeCommands(this, allPlayers);
+            // ИСПРАВЛЕНО №1:
+            QQCapture.getInstance().getCommandManager().executeStartCommands(this, allPlayers);
+        } else {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("No start commands found");
+            }
         }
     }
     
@@ -244,12 +244,12 @@ public class CaptureSession {
         
         List<String> tickCommands = template.getTickCommands();
         if (tickCommands != null && !tickCommands.isEmpty()) {
-            QQCapture.getInstance().getCommandManager().executeCommands(this, activePlayers);
-        }
-        
-        if (currentPoints >= targetPoints) {
-            complete = true;
-            onComplete(activePlayers);
+            plugin.getLogger().info("Executing " + tickCommands.size() + " tick commands");
+            for (String cmd : tickCommands) {
+                plugin.getLogger().info("  Tick command: " + cmd);
+            }
+            // ИСПРАВЛЕНО №2:
+            QQCapture.getInstance().getCommandManager().executeTickCommands(this, activePlayers);
         }
     }
     
@@ -262,9 +262,6 @@ public class CaptureSession {
             Location loc = player.getLocation();
             if (isInZone(loc, pos1, pos2)) {
                 result.add(player);
-            // if (!players.containsKey(player.getUniqueId())) {
-            //     addPlayer(player);
-            // }
             }
         }
         return result;
@@ -294,7 +291,8 @@ public class CaptureSession {
     private void onComplete(List<Player> playersInZone) {
         List<String> endCommands = template.getEndCommands();
         if (endCommands != null && !endCommands.isEmpty()) {
-            QQCapture.getInstance().getCommandManager().executeCommands(this, playersInZone);
+            // ИСПРАВЛЕНО №3:
+            QQCapture.getInstance().getCommandManager().executeEndCommands(this, playersInZone);
         }
         
         if (!silent) {
@@ -303,7 +301,6 @@ public class CaptureSession {
             Bukkit.broadcastMessage(ColorUtils.colorize(message));
         }
         
-        // ← ДОБАВЛЕНА ЗАДЕРЖКА ПЕРЕД ОСТАНОВКОЙ
         int endDelay = template.getEndDelay();
         if (endDelay > 0) {
             endDelayTask = new BukkitRunnable() {
@@ -379,7 +376,6 @@ public class CaptureSession {
         }
     }
     
-    // Getters
     public String getSessionId() { return sessionId; }
     public Template getTemplate() { return template; }
     public int getTargetPoints() { return targetPoints; }
