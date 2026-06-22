@@ -29,7 +29,8 @@ public class CommandManager {
     }
     
     public void executeCommands(CaptureSession session, List<Player> players) {
-        List<String> commands = session.getTemplate().getCommands();
+        // ИСПРАВЛЕНО: используем getTickCommands() вместо getCommands()
+        List<String> commands = session.getTemplate().getTickCommands();
         if (commands == null || commands.isEmpty()) {
             return;
         }
@@ -60,7 +61,6 @@ public class CommandManager {
     }
     
     private void executeCommand(CaptureSession session, List<Player> players, String command) {
-        // Check for random
         Matcher randomMatcher = randomPattern.matcher(command);
         if (randomMatcher.matches()) {
             int chance = Integer.parseInt(randomMatcher.group(1));
@@ -100,7 +100,6 @@ public class CommandManager {
                 return;
             }
             
-            // Выполняем команду для каждого игрока, у которого все условия выполнены
             for (Player player : players) {
                 boolean allConditionsMet = true;
                 for (String condition : conditions) {
@@ -116,7 +115,6 @@ public class CommandManager {
             return;
         }
         
-        // Check for single condition (check:condition! command)
         Matcher checkMatcher = checkPattern.matcher(command);
         if (checkMatcher.matches()) {
             String condition = checkMatcher.group(1);
@@ -130,7 +128,6 @@ public class CommandManager {
             return;
         }
         
-        // Execute for all players
         executeSingleCommand(session, players, command, null);
     }
     
