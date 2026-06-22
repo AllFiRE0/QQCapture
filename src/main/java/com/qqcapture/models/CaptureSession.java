@@ -108,7 +108,6 @@ public class CaptureSession {
         this.tickCounter = 0;
         this.lastCaptureTick = 0;
         
-        // ===== ОЧИЩАЕМ СТАРЫЙ ТОП ПЕРЕД ЗАПУСКОМ =====
         if (template.isTopAutoClearOnStart()) {
             QQCapture.getInstance().getTopStorageManager().clearTop(template.getName());
             if (plugin.getConfigManager().isDebug()) {
@@ -121,7 +120,6 @@ public class CaptureSession {
         startDurationTask();
         executeStartCommands();
 
-        // ===== ДОБАВЛЯЕМ ИГРОКОВ УЖЕ В ЗОНАХ =====
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (template.isInAnyZone(player.getLocation())) {
                 if (!players.containsKey(player.getUniqueId())) {
@@ -238,7 +236,6 @@ public class CaptureSession {
     }
     
     private void processCaptureTick() {
-        // ===== ПОЛУЧАЕМ ИГРОКОВ ВО ВСЕХ ЗОНАХ =====
         List<Player> playersInZone = template.getPlayersInZones();
 
         if (plugin.getConfigManager().isDebug()) {
@@ -335,7 +332,6 @@ public class CaptureSession {
     }
     
     private void onComplete(List<Player> playersInZone) {
-        // ===== СОХРАНЯЕМ ТОП =====
         if (template.isTopStorageEnabled() && !players.isEmpty()) {
             List<TopStorageManager.TopEntry> entries = new ArrayList<>();
             for (Map.Entry<UUID, PlayerData> entry : players.entrySet()) {
@@ -352,7 +348,6 @@ public class CaptureSession {
             QQCapture.getInstance().getTopStorageManager().saveTop(template.getName(), entries, duration);
         }
         
-        // ===== СОХРАНЯЕМ СНЕПШОТ =====
         SessionSnapshot snapshot = new SessionSnapshot(this);
         completedSessions.put(sessionId, snapshot);
         
@@ -367,7 +362,6 @@ public class CaptureSession {
             }
         }, 1200L);
         
-        // ===== ВЫПОЛНЯЕМ END КОМАНДЫ =====
         List<String> endCommands = template.getEndCommands();
         if (endCommands != null && !endCommands.isEmpty()) {
             QQCapture.getInstance().getCommandManager().executeEndCommands(this, playersInZone);
@@ -396,6 +390,37 @@ public class CaptureSession {
                 () -> QQCapture.getInstance().getSessionManager().stopSession(sessionId), 
                 template.getEndDelay() * 20L);
         }
+    }
+    
+    /**
+     * Остановка сессии без выполнения команд и сообщений (для замены шаблона)
+     */
+    public void stopSilently() {
+        stopped = true;
+        
+        if (bossBarTask != null) {
+            bossBarTask.cancel();
+        }
+        if (captureTask != null) {
+            captureTask.cancel();
+        }
+        if (durationTask != null) {
+            durationTask.cancel();
+        }
+        if (startDelayTask != null) {
+            startDelayTask.cancel();
+        }
+        if (endDelayTask != null) {
+            endDelayTask.cancel();
+        }
+        
+        // Скрываем боссбар у всех игроков
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            QQCapture.getInstance().getBossBarManager().hideBossBar(player, this);
+        }
+        
+        // НЕ выполняем end-команды
+        // НЕ отправляем сообщения о завершении
     }
     
     public void addPlayer(Player player) {
@@ -470,7 +495,6 @@ public class CaptureSession {
     public boolean isStopped() { return stopped; }
     public boolean isComplete() { return complete; }
 
-    // ===== ДОБАВЛЕНО: ПРОВЕРКА ИГРОКА В ЛЮБОЙ ЗОНЕ =====
     public boolean isPlayerInAnyZone(Player player) {
         return template.isInAnyZone(player.getLocation());
     }
