@@ -59,8 +59,12 @@ public class PlayerListener implements Listener {
                 continue;
             }
             
-            boolean wasInZone = isPlayerInZone(player, session);
+            boolean wasInZone = session.getPlayers().containsKey(player.getUniqueId());
             boolean nowInZone = isPlayerInZone(player, session);
+            
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Player " + player.getName() + " - wasInZone: " + wasInZone + ", nowInZone: " + nowInZone);
+            }
             
             if (!wasInZone && nowInZone) {
                 onPlayerEnterZone(player, session);
@@ -71,9 +75,23 @@ public class PlayerListener implements Listener {
     }
     
     private void onPlayerEnterZone(Player player, CaptureSession session) {
+        if (session == null) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().warning("Session is null in onPlayerEnterZone!");
+            }
+            return;
+        }
+        
+        // Проверяем, не добавлен ли уже игрок
+        if (session.getPlayers().containsKey(player.getUniqueId())) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Player " + player.getName() + " already in session " + session.getSessionId());
+            }
+            return;
+        }
+        
         Template template = session.getTemplate();
         
-        // Debug
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("Player " + player.getName() + " entered zone for session " + session.getSessionId());
         }
@@ -97,17 +115,24 @@ public class PlayerListener implements Listener {
         // Add player to session
         plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
         
-        // Show boss bar only if enabled
-        if (template.isBossBarEnabled()) {
-            plugin.getBossBarManager().showBossBar(player, session);
-        }
-        
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("Player " + player.getName() + " added to session " + session.getSessionId());
         }
     }
     
     private void onPlayerLeaveZone(Player player, CaptureSession session) {
+        if (session == null) {
+            return;
+        }
+        
+        // Проверяем, есть ли игрок в сессии
+        if (!session.getPlayers().containsKey(player.getUniqueId())) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Player " + player.getName() + " not in session " + session.getSessionId());
+            }
+            return;
+        }
+        
         plugin.getSessionManager().removePlayerFromSession(session.getSessionId(), player);
         plugin.getBossBarManager().hideBossBar(player, session);
         
@@ -117,12 +142,19 @@ public class PlayerListener implements Listener {
     }
     
     private boolean isPlayerInZone(Player player, CaptureSession session) {
+        if (session == null) {
+            return false;
+        }
+        
         Template template = session.getTemplate();
         Location loc = player.getLocation();
         Location pos1 = template.getPos1();
         Location pos2 = template.getPos2();
         
-        // Debug вывод координат
+        if (pos1 == null || pos2 == null || pos1.getWorld() == null) {
+            return false;
+        }
+        
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("Checking player " + player.getName() + " at " + 
                 loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ());
