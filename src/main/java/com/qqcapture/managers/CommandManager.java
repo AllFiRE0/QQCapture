@@ -1,10 +1,5 @@
 package com.qqcapture.managers;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.title.Title;
-import net.kyori.adventure.util.Ticks;
 import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.PlayerData;
@@ -481,13 +476,21 @@ public class CommandManager {
         Component title;
         Component subtitle = Component.empty();
     
-        // Ищем \n (один обратный слеш)
+        // ===== ПРОВЕРЯЕМ РАЗДЕЛИТЕЛИ: \n ИЛИ || =====
+        String[] parts = null;
+    
+        // Сначала пробуем \n
         if (text.contains("\\n")) {
-            String[] parts = text.split("\\n", 2);
+            parts = text.split("\\\\n", 2);
+        } 
+        // Потом пробуем ||
+        else if (text.contains("||")) {
+            parts = text.split("\\|\\|", 2);
+        }
+    
+        if (parts != null && parts.length == 2) {
             title = parseMessage(parts[0]);
-            if (parts.length > 1) {
-                subtitle = parseMessage(parts[1]);
-            }
+            subtitle = parseMessage(parts[1]);
         } else {
             title = parseMessage(text);
         }
