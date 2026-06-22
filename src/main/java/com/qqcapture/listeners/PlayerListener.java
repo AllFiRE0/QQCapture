@@ -17,12 +17,19 @@ import java.util.UUID;
 
 public class PlayerListener implements Listener {
     private final QQCapture plugin;
-    
-    // ===== ОПТИМИЗАЦИЯ: ТОЛЬКО ИГРОКИ В ЗОНЕ =====
     private final Set<UUID> trackedPlayers = new HashSet<>();
+    private final Set<UUID> pendingHidePlayers = new HashSet<>();
     
     public PlayerListener() {
         this.plugin = QQCapture.getInstance();
+    }
+    
+    public void addTrackedPlayer(Player player) {
+        trackedPlayers.add(player.getUniqueId());
+    }
+    
+    public void removeTrackedPlayer(Player player) {
+        trackedPlayers.remove(player.getUniqueId());
     }
     
     @EventHandler
@@ -33,13 +40,8 @@ public class PlayerListener implements Listener {
             Template template = session.getTemplate();
             if (template.isBossBarEnabled() && template.isSendOnRejoin()) {
                 if (template.isInAnyZone(player.getLocation())) {
-                    // Добавляем в список отслеживаемых
                     trackedPlayers.add(player.getUniqueId());
-                    
-                    // Показываем боссбар
                     plugin.getBossBarManager().showBossBar(player, session);
-                    
-                    // Добавляем в сессию, если ещё не добавлен
                     if (!session.getPlayers().containsKey(player.getUniqueId())) {
                         plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
                     }
@@ -51,9 +53,8 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        
-        // Удаляем из списка отслеживаемых
         trackedPlayers.remove(player.getUniqueId());
+        pendingHidePlayers.remove(player.getUniqueId());
         
         CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
         if (session != null) {
@@ -66,12 +67,10 @@ public class PlayerListener implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         
-        // ===== 1. ПРОВЕРКА: ИГРОК В СПИСКЕ ОТСЛЕЖИВАЕМЫХ? =====
         if (!trackedPlayers.contains(uuid)) {
-            return; // ← ИГРОК НЕ В ЗОНЕ — НЕ ПРОВЕРЯЕМ!
+            return;
         }
         
-        // ===== 2. ПРОВЕРКА: ПЕРЕШЕЛ ЛИ ИГРОК НА НОВЫЙ БЛОК? =====
         Location from = event.getFrom();
         Location to = event.getTo();
         
@@ -81,7 +80,6 @@ public class PlayerListener implements Listener {
             return;
         }
         
-        // ===== 3. ПРОВЕРКА: АКТИВНЫЕ СЕССИИ =====
         for (CaptureSession session : plugin.getSessionManager().getActiveSessions()) {
             if (session.isStopped() || session.isComplete()) {
                 continue;
@@ -98,95 +96,68 @@ public class PlayerListener implements Listener {
             }
             
             if (nowInZone && !isInSession) {
-                // Игрок ВОШЕЛ в зону
+                // ВОШЕЛ В ЗОНУ
+                pendingHidePlayers.remove(uuid);
                 onPlayerEnterZone(player, session);
             } else if (nowInZone && isInSession) {
-                // Игрок УЖЕ в зоне — проверяем боссбар
+                // УЖЕ В ЗОНЕ
+                pendingHidePlayers.remove(uuid);
                 if (template.isBossBarEnabled()) {
                     plugin.getBossBarManager().showBossBar(player, session);
                 }
             } else if (!nowInZone && isInSession) {
-                // Игрок ВЫШЕЛ из зоны
+                // ВЫШЕЛ ИЗ ЗОНЫ — НАЧИНАЕМ ОТСЧЕТ 5 СЕКУНД
                 onPlayerLeaveZone(player, session);
             }
         }
     }
     
     private void onPlayerEnterZone(Player player, CaptureSession session) {
-        if (session == null) {
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().warning("Session is null in onPlayerEnterZone!");
-            }
-            return;
-        }
-        
-        // Проверяем, не добавлен ли уже игрок
-        if (session.getPlayers().containsKey(player.getUniqueId())) {
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Player " + player.getName() + 
-                    " already in session " + session.getSessionId());
-            }
-            return;
-        }
+        if (session == null) return;
+        if (session.getPlayers().containsKey(player.getUniqueId())) return;
         
         Template template = session.getTemplate();
         
         if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Player " + player.getName() + 
-                " entered zone for session " + session.getSessionId());
+            plugin.getLogger().info("Player " + player.getName() + " entered zone for session " + session.getSessionId());
         }
         
-        // Проверка прав
         if (!template.getPermission().isEmpty() && !player.hasPermission(template.getPermission())) {
             if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Player " + player.getName() + 
-                    " doesn't have permission: " + template.getPermission());
+                plugin.getLogger().info("Player " + player.getName() + " doesn't have permission: " + template.getPermission());
             }
             return;
         }
         
-        // Проверка условий
         if (!plugin.getConditionManager().checkPlayerConditions(player, template)) {
             if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Player " + player.getName() + 
-                    " doesn't meet conditions");
+                plugin.getLogger().info("Player " + player.getName() + " doesn't meet conditions");
             }
             return;
         }
         
-        // ===== ДОБАВЛЯЕМ В СПИСОК ОТСЛЕЖИВАЕМЫХ =====
         trackedPlayers.add(player.getUniqueId());
+        pendingHidePlayers.remove(player.getUniqueId());
         
-        // Добавляем в сессию
         plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
         
         if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Player " + player.getName() + 
-                " added to session " + session.getSessionId());
+            plugin.getLogger().info("Player " + player.getName() + " added to session " + session.getSessionId());
         }
     }
     
     private void onPlayerLeaveZone(Player player, CaptureSession session) {
-        if (session == null) {
+        if (session == null) return;
+        if (!session.getPlayers().containsKey(player.getUniqueId())) return;
+        
+        UUID uuid = player.getUniqueId();
+        
+        // Если уже в очереди на скрытие — не дублируем
+        if (pendingHidePlayers.contains(uuid)) {
             return;
         }
         
-        // Проверяем, есть ли игрок в сессии
-        if (!session.getPlayers().containsKey(player.getUniqueId())) {
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Player " + player.getName() + 
-                    " not in session " + session.getSessionId());
-            }
-            return;
-        }
-        
-        // Удаляем из сессии
-        plugin.getSessionManager().removePlayerFromSession(session.getSessionId(), player);
-        
-        // Скрываем боссбар
-        plugin.getBossBarManager().hideBossBar(player, session);
-        
-        // ===== ПРОВЕРЯЕМ: ЕСТЬ ЛИ ИГРОК В ДРУГИХ СЕССИЯХ? =====
+        // Проверяем, есть ли игрок в других сессиях
         boolean inOtherSession = false;
         for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
             if (s.getSessionId().equals(session.getSessionId())) continue;
@@ -196,18 +167,54 @@ public class PlayerListener implements Listener {
             }
         }
         
-        // ===== ЕСЛИ НЕТ — УДАЛЯЕМ ИЗ СПИСКА ОТСЛЕЖИВАЕМЫХ =====
-        if (!inOtherSession) {
-            trackedPlayers.remove(player.getUniqueId());
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Player " + player.getName() + 
-                    " removed from tracking list");
-            }
+        // Если есть в другой сессии — не скрываем
+        if (inOtherSession) {
+            return;
         }
+        
+        // Добавляем в очередь на скрытие с задержкой 5 секунд
+        pendingHidePlayers.add(uuid);
         
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("Player " + player.getName() + 
-                " left zone for session " + session.getSessionId());
+                " left zone, bossbar will hide in 5 seconds");
         }
+        
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            // Проверяем, не зашел ли игрок обратно за это время
+            if (!pendingHidePlayers.contains(uuid)) {
+                return;
+            }
+            
+            // Проверяем, не в сессии ли игрок
+            if (session.getPlayers().containsKey(player.getUniqueId())) {
+                pendingHidePlayers.remove(uuid);
+                return;
+            }
+            
+            // Проверяем другие сессии
+            boolean inOtherSessionNow = false;
+            for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
+                if (s.getPlayers().containsKey(player.getUniqueId())) {
+                    inOtherSessionNow = true;
+                    break;
+                }
+            }
+            
+            if (inOtherSessionNow) {
+                pendingHidePlayers.remove(uuid);
+                return;
+            }
+            
+            // Скрываем боссбар
+            plugin.getBossBarManager().hideBossBar(player, session);
+            trackedPlayers.remove(uuid);
+            pendingHidePlayers.remove(uuid);
+            
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("BossBar hidden for player " + player.getName() + 
+                    " after 5s delay");
+            }
+        }, 100L); // 5 секунд = 100 тиков
     }
 }
