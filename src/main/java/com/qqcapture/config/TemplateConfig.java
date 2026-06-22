@@ -177,7 +177,7 @@ public class TemplateConfig {
         builder.permission(permission);
         
         // --- Player limits ---
-        int minPlayers = section.getInt("min-players", 2);
+        int minPlayers = section.getInt("min-players", -1);
         if (minPlayers < 0) {
             validationWarnings.add("Template '" + name + "': Min players cannot be negative (" + minPlayers + "), using 0");
             minPlayers = 0;
