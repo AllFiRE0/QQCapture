@@ -84,22 +84,31 @@ public class BossBarManager {
     }
     
     private BossBar createBossBar(CaptureSession session) {
-        Template template = session.getTemplate();
-        String title = template.getBossBarText();
-        title = applyPlaceholders(title, session, null);
+        try {
+            Template template = session.getTemplate();
+            String title = template.getBossBarText();
+            title = applyPlaceholders(title, session, null);
         
-        BarColor color = getBarColor(template.getBossBarColor());
-        BossBar bossBar = Bukkit.createBossBar(
-            ColorUtils.colorize(title),
-            color,
-            BarStyle.SEGMENTED_12
-        );
+            BarColor color = getBarColor(template.getBossBarColor());
+            BossBar bossBar = Bukkit.createBossBar(
+                ColorUtils.colorize(title),
+                color,
+                BarStyle.SEGMENTED_12
+            );
         
-        // Set segments
-        int segments = template.getSegments();
-        bossBar.setStyle(getBarStyle(segments));
+            // Set segments
+            int segments = template.getSegments();
+            bossBar.setStyle(getBarStyle(segments));
         
-        return bossBar;
+            return bossBar;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to create boss bar: " + e.getMessage());
+            return Bukkit.createBossBar(
+                "Error",
+                BarColor.RED,
+                BarStyle.SOLID
+            );
+        }
     }
     
     private BarColor getBarColor(String colorName) {
