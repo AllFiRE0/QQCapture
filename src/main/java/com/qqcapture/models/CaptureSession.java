@@ -246,11 +246,14 @@ public class CaptureSession {
         List<Player> result = new ArrayList<>();
         Location pos1 = template.getPos1();
         Location pos2 = template.getPos2();
-        
+    
         for (Player player : Bukkit.getOnlinePlayers()) {
             Location loc = player.getLocation();
             if (isInZone(loc, pos1, pos2)) {
                 result.add(player);
+            // if (!players.containsKey(player.getUniqueId())) {
+            //     addPlayer(player);
+            // }
             }
         }
         return result;
