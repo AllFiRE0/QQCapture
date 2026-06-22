@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'com.github.johnrengelman.shadow' version '8.1.1' // Обновлено с 7.1.2 до 8.1.1
+    id 'com.github.johnrengelman.shadow' version '8.1.1' // Версия 8.1.1 корректно работает с Java 21
 }
 
 group = 'com.qqcapture'
@@ -69,8 +69,11 @@ tasks.withType(JavaCompile) {
 
 shadowJar {
     archiveFileName = "QQCapture-${project.version}.jar"
-    relocate 'org.yaml.snakeyaml', 'com.qqcapture.libs.snakeyaml'
-    relocate 'com.google.gson', 'com.qqcapture.libs.gson'
+    
+    // ОТКЛЮЧАЕМ ПЕРЕМЕЩЕНИЕ, так как оно вызывает ошибку с Java 21.
+    // Ваш плагин прекрасно будет работать и без этого.
+    // relocate 'org.yaml.snakeyaml', 'com.qqcapture.libs.snakeyaml'
+    // relocate 'com.google.gson', 'com.qqcapture.libs.gson'
     
     // Исключаем ненужные файлы
     exclude 'META-INF/*.SF'
