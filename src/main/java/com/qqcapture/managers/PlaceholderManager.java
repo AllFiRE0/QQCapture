@@ -137,7 +137,6 @@ public class PlaceholderManager {
             .values().stream()
             .filter(s -> {
                 String name = s.getTemplate().getName();
-                // Убираем _override если есть
                 if (name.endsWith("_override")) {
                     name = name.substring(0, name.length() - 9);
                 }
@@ -196,7 +195,14 @@ public class PlaceholderManager {
     private String parseTopPlaceholder(String templateName, CaptureSession session, String property, String fallback) {
         // ===== ПРОВЕРЯЕМ ХРАНИЛИЩЕ =====
         TopStorageManager storage = plugin.getTopStorageManager();
-        List<TopStorageManager.TopEntry> entries = storage.getTop(templateName);
+        
+        // ===== ИСПРАВЛЕНО: убираем _override при поиске в файле =====
+        String cleanTemplateName = templateName;
+        if (cleanTemplateName.endsWith("_override")) {
+            cleanTemplateName = cleanTemplateName.substring(0, cleanTemplateName.length() - 9);
+        }
+        
+        List<TopStorageManager.TopEntry> entries = storage.getTop(cleanTemplateName);
         
         String[] parts = property.split("_");
         if (parts.length < 3) {
