@@ -121,8 +121,9 @@ public class CaptureSession {
         startDurationTask();
         executeStartCommands();
 
+        // ===== ДОБАВЛЯЕМ ИГРОКОВ УЖЕ В ЗОНАХ =====
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (isInZone(player.getLocation(), template.getPos1(), template.getPos2())) {
+            if (template.isInAnyZone(player.getLocation())) {
                 if (!players.containsKey(player.getUniqueId())) {
                     addPlayer(player);
                     if (plugin.getConfigManager().isDebug()) {
@@ -237,10 +238,11 @@ public class CaptureSession {
     }
     
     private void processCaptureTick() {
-        List<Player> playersInZone = getPlayersInZone();
+        // ===== ПОЛУЧАЕМ ИГРОКОВ ВО ВСЕХ ЗОНАХ =====
+        List<Player> playersInZone = template.getPlayersInZones();
 
         if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("processCaptureTick: " + playersInZone.size() + " players in zone");
+            plugin.getLogger().info("processCaptureTick: " + playersInZone.size() + " players in zones");
         }
     
         if (playersInZone.size() < template.getMinPlayers()) {
@@ -326,37 +328,6 @@ public class CaptureSession {
             complete = true;
             onComplete(activePlayers);
         }
-    }
-    
-    private List<Player> getPlayersInZone() {
-        List<Player> result = new ArrayList<>();
-        Location pos1 = template.getPos1();
-        Location pos2 = template.getPos2();
-    
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            Location loc = player.getLocation();
-            if (isInZone(loc, pos1, pos2)) {
-                result.add(player);
-            }
-        }
-        return result;
-    }
-    
-    private boolean isInZone(Location loc, Location pos1, Location pos2) {
-        if (!template.getRegionName().isEmpty()) {
-            return QQCapture.getInstance().getRegionManager().isPlayerInRegion(loc, template.getRegionName());
-        }
-        
-        double minX = Math.min(pos1.getX(), pos2.getX());
-        double maxX = Math.max(pos1.getX(), pos2.getX());
-        double minY = Math.min(pos1.getY(), pos2.getY());
-        double maxY = Math.max(pos1.getY(), pos2.getY());
-        double minZ = Math.min(pos1.getZ(), pos2.getZ());
-        double maxZ = Math.max(pos1.getZ(), pos2.getZ());
-        
-        return loc.getX() >= minX && loc.getX() <= maxX &&
-               loc.getY() >= minY && loc.getY() <= maxY &&
-               loc.getZ() >= minZ && loc.getZ() <= maxZ;
     }
     
     private void updateBossBars() {
@@ -473,11 +444,16 @@ public class CaptureSession {
     public void update() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (players.containsKey(player.getUniqueId())) {
-                Location loc = player.getLocation();
-                boolean inZone = isInZone(loc, template.getPos1(), template.getPos2());
-                PlayerData data = players.get(player.getUniqueId());
-                if (data != null) {
-                    data.setInZone(inZone);
+                if (template.isInAnyZone(player.getLocation())) {
+                    PlayerData data = players.get(player.getUniqueId());
+                    if (data != null) {
+                        data.setInZone(true);
+                    }
+                } else {
+                    PlayerData data = players.get(player.getUniqueId());
+                    if (data != null) {
+                        data.setInZone(false);
+                    }
                 }
             }
         }
