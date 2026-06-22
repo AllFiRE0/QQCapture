@@ -116,6 +116,7 @@ public class CommandManager {
             plugin.getLogger().info("Executing command: " + command);
         }
         
+        // random:
         Matcher randomMatcher = randomPattern.matcher(command);
         if (randomMatcher.matches()) {
             int chance = Integer.parseInt(randomMatcher.group(1));
@@ -131,11 +132,13 @@ public class CommandManager {
             }
         }
         
+        // Если команда начинается с check: - обрабатываем отдельно
         if (command.startsWith("check:")) {
             handleCheckCommand(session, players, command);
             return;
         }
         
+        // Обычная команда
         executeSingleCommand(session, players, command, null);
     }
     
@@ -144,11 +147,12 @@ public class CommandManager {
         String remaining = command;
         String actualCommand = "";
         
+        // Парсим все check: условия
         while (remaining.startsWith("check:")) {
             int nextCheck = remaining.indexOf(" check:", 1);
             int firstExclamation = remaining.indexOf("! ");
             
-            if (nextCheck > 0 && nextCheck < firstExclamation) {
+            if (nextCheck > 0 && (firstExclamation == -1 || nextCheck < firstExclamation)) {
                 String condition = remaining.substring(6, nextCheck).trim();
                 conditions.add(condition);
                 remaining = remaining.substring(nextCheck);
@@ -184,6 +188,7 @@ public class CommandManager {
                 if (plugin.getConfigManager().isDebug()) {
                     plugin.getLogger().info("All conditions met for player " + player.getName());
                 }
+                // Выполняем команду (она может содержать другие !)
                 executeSingleCommand(session, players, actualCommand, player);
             }
         }
@@ -216,7 +221,7 @@ public class CommandManager {
             plugin.getLogger().info("Executing - prefix: " + prefix + ", content: " + content);
         }
         
-        // ===== ПРОВЕРКА ПРЕФИКСОВ С ПАРАМЕТРАМИ =====
+        // Проверка префиксов с параметрами
         if (prefix.startsWith("title:")) {
             handleTitleCommandWithParams(targetPlayer != null ? targetPlayer : players.get(0), content, prefix.substring(6));
             return;
