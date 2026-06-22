@@ -11,8 +11,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-import java.util.Map;
-
 public class PlayerListener implements Listener {
     private final QQCapture plugin;
     
@@ -23,13 +21,10 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-    
-        // Check if player should see boss bars
+        
         for (CaptureSession session : plugin.getSessionManager().getActiveSessions()) {
             Template template = session.getTemplate();
-            // Проверяем: боссбар включен И нужно отправлять при перезаходе
             if (template.isBossBarEnabled() && template.isSendOnRejoin()) {
-                // Check if player is in zone
                 if (isPlayerInZone(player, session)) {
                     plugin.getBossBarManager().showBossBar(player, session);
                 }
@@ -41,7 +36,6 @@ public class PlayerListener implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         
-        // Remove player from sessions
         CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
         if (session != null) {
             plugin.getSessionManager().removePlayerFromSession(session.getSessionId(), player);
@@ -54,14 +48,12 @@ public class PlayerListener implements Listener {
         Location from = event.getFrom();
         Location to = event.getTo();
         
-        // Only check if position changed
         if (from.getBlockX() == to.getBlockX() && 
             from.getBlockY() == to.getBlockY() && 
             from.getBlockZ() == to.getBlockZ()) {
             return;
         }
         
-        // Check for zone entry/exit
         for (CaptureSession session : plugin.getSessionManager().getActiveSessions()) {
             if (session.isStopped() || session.isComplete()) {
                 continue;
@@ -71,10 +63,8 @@ public class PlayerListener implements Listener {
             boolean nowInZone = isPlayerInZone(player, session);
             
             if (!wasInZone && nowInZone) {
-                // Player entered zone
                 onPlayerEnterZone(player, session);
             } else if (wasInZone && !nowInZone) {
-                // Player left zone
                 onPlayerLeaveZone(player, session);
             }
         }
@@ -83,36 +73,44 @@ public class PlayerListener implements Listener {
     private void onPlayerEnterZone(Player player, CaptureSession session) {
         Template template = session.getTemplate();
         
+        // Debug
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Player " + player.getName() + " entered zone for session " + session.getSessionId());
+        }
+        
         // Check permission
         if (!template.getPermission().isEmpty() && !player.hasPermission(template.getPermission())) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Player " + player.getName() + " doesn't have permission: " + template.getPermission());
+            }
             return;
         }
         
         // Check player conditions
         if (!plugin.getConditionManager().checkPlayerConditions(player, template)) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Player " + player.getName() + " doesn't meet conditions");
+            }
             return;
         }
         
         // Add player to session
         plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
         
-        // Show boss bar
-        plugin.getBossBarManager().showBossBar(player, session);
+        // Show boss bar only if enabled
+        if (template.isBossBarEnabled()) {
+            plugin.getBossBarManager().showBossBar(player, session);
+        }
         
-        // Debug
         if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Player " + player.getName() + " entered zone for session " + session.getSessionId());
+            plugin.getLogger().info("Player " + player.getName() + " added to session " + session.getSessionId());
         }
     }
     
     private void onPlayerLeaveZone(Player player, CaptureSession session) {
-        // Remove player from session
         plugin.getSessionManager().removePlayerFromSession(session.getSessionId(), player);
-        
-        // Hide boss bar
         plugin.getBossBarManager().hideBossBar(player, session);
         
-        // Debug
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("Player " + player.getName() + " left zone for session " + session.getSessionId());
         }
@@ -123,6 +121,15 @@ public class PlayerListener implements Listener {
         Location loc = player.getLocation();
         Location pos1 = template.getPos1();
         Location pos2 = template.getPos2();
+        
+        // Debug вывод координат
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Checking player " + player.getName() + " at " + 
+                loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ());
+            plugin.getLogger().info("Zone: " + 
+                pos1.getBlockX() + "," + pos1.getBlockY() + "," + pos1.getBlockZ() + " to " +
+                pos2.getBlockX() + "," + pos2.getBlockY() + "," + pos2.getBlockZ());
+        }
         
         // Check WorldGuard region first
         if (!template.getRegionName().isEmpty()) {
@@ -137,8 +144,14 @@ public class PlayerListener implements Listener {
         double minZ = Math.min(pos1.getZ(), pos2.getZ());
         double maxZ = Math.max(pos1.getZ(), pos2.getZ());
         
-        return loc.getX() >= minX && loc.getX() <= maxX &&
-               loc.getY() >= minY && loc.getY() <= maxY &&
-               loc.getZ() >= minZ && loc.getZ() <= maxZ;
+        boolean inZone = loc.getX() >= minX && loc.getX() <= maxX &&
+                         loc.getY() >= minY && loc.getY() <= maxY &&
+                         loc.getZ() >= minZ && loc.getZ() <= maxZ;
+        
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Player " + player.getName() + " in zone: " + inZone);
+        }
+        
+        return inZone;
     }
 }
