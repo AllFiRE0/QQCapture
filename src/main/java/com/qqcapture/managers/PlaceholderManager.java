@@ -108,22 +108,39 @@ public class PlaceholderManager {
     
     private String parseQQCapturePlaceholder(Player player, String placeholder) {
         // Format: qqcapture_templateName_property_fallback
-        String[] parts = placeholder.split("_");
-        if (parts.length < 3) {
+        // Убираем префикс "qqcapture_"
+        String withoutPrefix = placeholder.substring("qqcapture_".length());
+        
+        // Список возможных свойств (property)
+        String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants"};
+        
+        String templateName = null;
+        String property = null;
+        String fallback = "";
+        
+        // Ищем первое совпадение свойства
+        for (String prop : properties) {
+            int index = withoutPrefix.indexOf(prop);
+            if (index > 0) {
+                templateName = withoutPrefix.substring(0, index);
+                property = withoutPrefix.substring(index + 1); // убираем первый _
+                break;
+            }
+        }
+        
+        // Если не нашли свойство - возвращаем как есть
+        if (templateName == null || property == null) {
             return placeholder;
         }
         
-        String templateName = parts[1];
-        String property = parts[2];
-        String fallback = "";
-        
-        // Check for fallback
-        int fallbackIndex = placeholder.indexOf("_&");
+        // Проверяем наличие fallback в property
+        int fallbackIndex = property.indexOf("_&");
         if (fallbackIndex > 0) {
-            fallback = placeholder.substring(fallbackIndex + 2);
-            placeholder = placeholder.substring(0, fallbackIndex);
+            fallback = property.substring(fallbackIndex + 2);
+            property = property.substring(0, fallbackIndex);
         }
         
+        // Ищем сессию с этим шаблоном
         CaptureSession session = plugin.getSessionManager().getActiveSessionsMap()
             .values().stream()
             .filter(s -> s.getTemplate().getName().equalsIgnoreCase(templateName))
@@ -134,6 +151,7 @@ public class PlaceholderManager {
             return fallback.isEmpty() ? "0" : fallback;
         }
         
+        // Обработка свойства
         switch (property) {
             case "current":
                 return String.valueOf(session.getCurrentPoints());
@@ -147,22 +165,28 @@ public class PlaceholderManager {
                 long elapsed = System.currentTimeMillis() - session.getStartTime();
                 return formatTime(elapsed, session.getTemplate().getTimerFormat());
             case "top":
-                return parseTopPlaceholder(session, placeholder, parts, fallback);
+                return parseTopPlaceholder(session, property, fallback);
             case "participants":
-                return parseParticipantsPlaceholder(session, placeholder, parts, fallback);
+                return parseParticipantsPlaceholder(session, property, fallback);
             default:
                 return fallback.isEmpty() ? "0" : fallback;
         }
     }
     
-    private String parseTopPlaceholder(CaptureSession session, String placeholder, String[] parts, String fallback) {
-        if (parts.length < 5) {
+    private String parseTopPlaceholder(CaptureSession session, String property, String fallback) {
+        // Формат: top_X_name или top_X_value или top_X_points
+        // Убираем "top_"
+        String withoutTop = property.substring("top_".length());
+        
+        // Ищем позицию и тип
+        String[] parts = withoutTop.split("_", 2);
+        if (parts.length < 2) {
             return fallback.isEmpty() ? "0" : fallback;
         }
         
         try {
-            int position = Integer.parseInt(parts[3]);
-            String type = parts[4];
+            int position = Integer.parseInt(parts[0]);
+            String type = parts[1];
             
             // Get top players
             List<Map.Entry<UUID, PlayerData>> sorted = session.getPlayers().entrySet().stream()
@@ -182,9 +206,7 @@ public class PlaceholderManager {
             
             if (type.equals("name")) {
                 return topPlayer.getName();
-            } else if (type.equals("value")) {
-                return String.valueOf(entry.getValue().getContribution());
-            } else if (type.equals("points")) {
+            } else if (type.equals("value") || type.equals("points")) {
                 return String.valueOf(entry.getValue().getContribution());
             }
             
@@ -195,12 +217,15 @@ public class PlaceholderManager {
         return fallback.isEmpty() ? "0" : fallback;
     }
     
-    private String parseParticipantsPlaceholder(CaptureSession session, String placeholder, String[] parts, String fallback) {
-        if (parts.length < 4) {
-            return fallback.isEmpty() ? "" : fallback;
+    private String parseParticipantsPlaceholder(CaptureSession session, String property, String fallback) {
+        // Формат: participants_<separator>
+        String separator = property.substring("participants".length());
+        
+        // Если separator начинается с "_", убираем его
+        if (separator.startsWith("_")) {
+            separator = separator.substring(1);
         }
         
-        String separator = parts[3];
         if (separator.isEmpty() || separator.equals("_")) {
             separator = " ";
         }
