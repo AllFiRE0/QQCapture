@@ -216,13 +216,13 @@ public class CommandManager {
             plugin.getLogger().info("Executing - prefix: " + prefix + ", content: " + content);
         }
         
-        // Проверка префиксов с параметрами
+        // ===== ПРОВЕРКА ПРЕФИКСОВ С ПАРАМЕТРАМИ =====
         if (prefix.startsWith("title:")) {
-            handleTitleCommand(targetPlayer != null ? targetPlayer : players.get(0), prefix.substring(6) + "!" + content);
+            handleTitleCommandWithParams(targetPlayer != null ? targetPlayer : players.get(0), content, prefix.substring(6));
             return;
         }
         if (prefix.startsWith("actionbar:")) {
-            handleActionbarCommand(targetPlayer != null ? targetPlayer : players.get(0), prefix.substring(10) + "!" + content);
+            handleActionbarCommandWithParams(targetPlayer != null ? targetPlayer : players.get(0), content, prefix.substring(10));
             return;
         }
         
@@ -280,7 +280,15 @@ public class CommandManager {
         }
     }
     
-    // ===== ACTIONBAR =====
+    // ===== ACTIONBAR С ПАРАМЕТРАМИ =====
+    
+    private void handleActionbarCommandWithParams(Player player, String content, String params) {
+        int duration = 60;
+        try {
+            duration = Integer.parseInt(params);
+        } catch (NumberFormatException ignored) {}
+        sendActionBar(player, content, duration);
+    }
     
     private void handleActionbarCommand(Player player, String content) {
         int duration = 60;
@@ -310,6 +318,29 @@ public class CommandManager {
         }
         
         sendActionBarAll(ColorUtils.colorize(message), duration);
+    }
+    
+    // ===== TITLE С ПАРАМЕТРАМИ =====
+    
+    private void handleTitleCommandWithParams(Player player, String content, String params) {
+        String[] times = params.split(":");
+        if (times.length == 3) {
+            try {
+                int fadeIn = Integer.parseInt(times[0]);
+                int stay = Integer.parseInt(times[1]);
+                int fadeOut = Integer.parseInt(times[2]);
+                String[] titleParts = content.split("\n", 2);
+                sendTitle(player, 
+                    titleParts[0],
+                    titleParts.length > 1 ? titleParts[1] : "",
+                    fadeIn, stay, fadeOut);
+                return;
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        // Fallback
+        String[] titleParts = content.split("\n", 2);
+        sendTitle(player, titleParts[0], titleParts.length > 1 ? titleParts[1] : "", 20, 40, 20);
     }
     
     // ===== TITLE =====
