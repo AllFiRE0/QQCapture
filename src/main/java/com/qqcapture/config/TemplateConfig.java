@@ -17,7 +17,7 @@ public class TemplateConfig {
     private final Map<String, Template> templates;
     private final List<String> validationErrors;
     private final List<String> validationWarnings;
-    private boolean debugMode; // Добавляем отдельное поле
+    private boolean debugMode;
     
     public TemplateConfig(QQCapture plugin) {
         this.plugin = plugin;
@@ -27,9 +27,6 @@ public class TemplateConfig {
         this.debugMode = false;
     }
     
-    /**
-     * Загружает все шаблоны из конфигурации
-     */
     public Map<String, Template> loadTemplates(FileConfiguration config) {
         templates.clear();
         validationErrors.clear();
@@ -48,7 +45,6 @@ public class TemplateConfig {
                     Template template = parseTemplate(templateName, templateSection);
                     if (template != null && validateTemplate(template)) {
                         templates.put(templateName.toLowerCase(), template);
-                        // ИСПРАВЛЕНО: используем debugMode вместо plugin.getConfigManager()
                         if (debugMode) {
                             plugin.getLogger().info("✓ Loaded template: " + templateName);
                         }
@@ -61,7 +57,6 @@ public class TemplateConfig {
             }
         }
         
-        // Log validation results
         if (!validationErrors.isEmpty()) {
             plugin.getLogger().warning("Template validation errors:");
             for (String error : validationErrors) {
@@ -80,21 +75,15 @@ public class TemplateConfig {
         return templates;
     }
     
-    // Добавляем метод для установки режима отладки
     public void setDebugMode(boolean debug) {
         this.debugMode = debug;
     }
     
-    /**
-     * Парсит один шаблон из конфигурации
-     */
     private Template parseTemplate(String name, ConfigurationSection section) {
         Template.Builder builder = new Template.Builder(name);
         
-        // --- BossBar секция ---
         ConfigurationSection bossBarSection = section.getConfigurationSection("bossbar");
         if (bossBarSection != null) {
-            // Color
             String color = bossBarSection.getString("color", "GREEN");
             if (isValidBossBarColor(color)) {
                 builder.bossBarColor(color);
@@ -103,7 +92,6 @@ public class TemplateConfig {
                 builder.bossBarColor("GREEN");
             }
             
-            // Update interval
             int updateInterval = bossBarSection.getInt("обновлять-боссбар-каждые-N-тиков", 20);
             if (updateInterval < 1) {
                 validationWarnings.add("Template '" + name + "': Bossbar update interval too low (" + updateInterval + "), using 1");
@@ -111,7 +99,6 @@ public class TemplateConfig {
             }
             builder.bossBarUpdateTicks(updateInterval);
             
-            // Texts
             builder.startText(bossBarSection.getString("start-text", 
                 "<gradient:#00FF00:#55FF55>Ивент начался!</gradient>"));
             builder.progressText(bossBarSection.getString("progress-text", 
@@ -119,7 +106,6 @@ public class TemplateConfig {
             builder.endText(bossBarSection.getString("end-text", 
                 "<gradient:#FF5555:#FF0000>Ивент завершился!</gradient>"));
             
-            // Segments
             int segments = bossBarSection.getInt("segments", 12);
             if (!isValidSegments(segments)) {
                 validationWarnings.add("Template '" + name + "': Invalid segments '" + segments + "', using 12");
@@ -127,7 +113,6 @@ public class TemplateConfig {
             }
             builder.segments(segments);
             
-            // Update ticks
             int updateTicks = bossBarSection.getInt("update-ticks", 5);
             if (updateTicks < 1) {
                 validationWarnings.add("Template '" + name + "': Update ticks too low (" + updateTicks + "), using 1");
@@ -135,11 +120,9 @@ public class TemplateConfig {
             }
             builder.updateTicks(updateTicks);
             
-            // Delays
             builder.startDelay(Math.max(0, bossBarSection.getInt("start-delay", 3)));
             builder.endDelay(Math.max(0, bossBarSection.getInt("end-delay", 3)));
             
-            // Timer format
             String timerFormat = bossBarSection.getString("timer-format", "mm:ss");
             if (!isValidTimerFormat(timerFormat)) {
                 validationWarnings.add("Template '" + name + "': Invalid timer format '" + timerFormat + "', using mm:ss");
@@ -147,15 +130,12 @@ public class TemplateConfig {
             }
             builder.timerFormat(timerFormat);
             
-            // Send on rejoin
             builder.sendOnRejoin(bossBarSection.getBoolean("отправлять-боссбар-когда-игрок-перезаходит-на-сервер", true));
             
-            // Boss bar text
             String bossBarText = bossBarSection.getString("текст-боссбара", 
                 "Ивент: %current%/%max% (Участников: %players% Групп: %groups%)");
             builder.bossBarText(bossBarText);
         } else {
-            // Default bossbar settings
             builder.bossBarColor("GREEN")
                    .bossBarUpdateTicks(20)
                    .startText("<gradient:#00FF00:#55FF55>Ивент начался!</gradient>")
@@ -170,22 +150,18 @@ public class TemplateConfig {
                    .bossBarText("Ивент: %current%/%max% (Участников: %players% Групп: %groups%)");
         }
         
-        // --- Conditions ---
         String condition = section.getString("condition", "");
         builder.condition(condition);
         
         String allPlayersCondition = section.getString("all-players-condition", "");
         builder.allPlayersCondition(allPlayersCondition);
         
-        // --- Rules ---
         Map<String, Map<String, String>> rules = parseRules(section);
         builder.rules(rules);
         
-        // --- Permission ---
         String permission = section.getString("permission", "");
         builder.permission(permission);
         
-        // --- Player limits ---
         int minPlayers = section.getInt("min-players", 2);
         if (minPlayers < 0) {
             validationWarnings.add("Template '" + name + "': Min players cannot be negative (" + minPlayers + "), using 0");
@@ -204,7 +180,6 @@ public class TemplateConfig {
         }
         builder.maxPlayers(maxPlayers);
         
-        // --- Capture settings ---
         int needAmount = section.getInt("need-amount", 100000);
         if (needAmount <= 0) {
             validationErrors.add("Template '" + name + "': Need amount must be > 0 (" + needAmount + ")");
@@ -226,7 +201,6 @@ public class TemplateConfig {
         }
         builder.multiplier(multiplier);
         
-        // --- Team multiplier ---
         String teamMultiplierType = section.getString("type-team-multiplier", "individual");
         if (!isValidTeamMultiplierType(teamMultiplierType)) {
             validationWarnings.add("Template '" + name + "': Invalid team multiplier type '" + teamMultiplierType + "', using 'individual'");
@@ -241,7 +215,6 @@ public class TemplateConfig {
         }
         builder.teamMultiplier(teamMultiplier);
         
-        // --- Region ---
         String pos1Str = section.getString("pos1", "0,0,0");
         String pos2Str = section.getString("pos2", "0,-1,0");
         
@@ -277,7 +250,6 @@ public class TemplateConfig {
         }
         builder.regionFlags(regionFlags);
         
-        // --- Commands ---
         boolean tickCommand = section.getBoolean("tick-command", false);
         builder.tickCommand(tickCommand);
         
@@ -286,16 +258,12 @@ public class TemplateConfig {
             commands = new ArrayList<>();
         }
         
-        // Validate commands
         List<String> validatedCommands = validateCommands(commands, name);
         builder.commands(validatedCommands);
         
         return builder.build();
     }
     
-    /**
-     * Парсит правила из конфигурации
-     */
     private Map<String, Map<String, String>> parseRules(ConfigurationSection section) {
         Map<String, Map<String, String>> rules = new LinkedHashMap<>();
         ConfigurationSection rulesSection = section.getConfigurationSection("rules");
@@ -322,20 +290,15 @@ public class TemplateConfig {
         return rules;
     }
     
-    /**
-     * Парсит значение правила
-     */
     private Map<String, String> parseRuleValue(String value) {
         Map<String, String> rule = new HashMap<>();
         
-        // Check for target: or other: prefix
         if (value.startsWith("target:") || value.startsWith("other:")) {
             String[] parts = value.split(":", 2);
             if (parts.length == 2) {
                 String prefix = parts[0];
                 String rest = parts[1];
                 
-                // Check for operator in rest
                 String[] operators = {">=", "<=", "==", "!=", ">", "<", "!~", "!-", "-!", "~"};
                 for (String operator : operators) {
                     if (rest.contains(operator)) {
@@ -357,7 +320,6 @@ public class TemplateConfig {
                 }
             }
         } else {
-            // Regular rule format: type: value
             String[] parts = value.split(":", 2);
             if (parts.length == 2) {
                 rule.put("type", parts[0].trim());
@@ -369,9 +331,6 @@ public class TemplateConfig {
         return null;
     }
     
-    /**
-     * Парсит строку координат в Location
-     */
     private Location parseLocation(String str) {
         if (str == null || str.isEmpty()) {
             return null;
@@ -394,13 +353,9 @@ public class TemplateConfig {
         return null;
     }
     
-    /**
-     * Валидирует шаблон
-     */
     private boolean validateTemplate(Template template) {
         boolean valid = true;
         
-        // Check if need amount is reachable with current multiplier
         if (template.getMultiplier() > 0) {
             double pointsPerTick = template.getNeedAmount() * template.getMultiplier();
             if (pointsPerTick < 0.001) {
@@ -409,13 +364,11 @@ public class TemplateConfig {
             }
         }
         
-        // Check if min players > 0 but no multiplier
         if (template.getMinPlayers() > 0 && template.getMultiplier() == 0 && template.getTeamMultiplier() == 0) {
             validationWarnings.add("Template '" + template.getName() + 
                 "': Min players > 0 but all multipliers are 0, no points will be awarded");
         }
         
-        // Check if commands use placeholders that might not exist
         for (String command : template.getCommands()) {
             if (command.contains("%qqcapture_") && !command.contains(template.getName())) {
                 validationWarnings.add("Template '" + template.getName() + 
@@ -426,15 +379,12 @@ public class TemplateConfig {
         return valid;
     }
     
-    /**
-     * Валидирует команды
-     */
     private List<String> validateCommands(List<String> commands, String templateName) {
         List<String> validated = new ArrayList<>();
         Set<String> validPrefixes = new HashSet<>(Arrays.asList(
             "asConsole", "asPlayer", "message", "gMessage", 
             "sound", "gSound", "actionbar", "gActionbar", 
-            "title", "delay", "random", "check"
+            "title", "delay", "random"
         ));
         
         for (String command : commands) {
@@ -444,23 +394,75 @@ public class TemplateConfig {
             
             String trimmed = command.trim();
             
-            // Check for valid format
-            if (trimmed.contains("! ")) {
-                String[] parts = trimmed.split("! ", 2);
-                String prefix = parts[0].trim();
-                String content = parts[1].trim();
+            // Специальная обработка для check: формата (поддержка нескольких check:)
+            if (trimmed.startsWith("check:")) {
+                List<String> conditions = new ArrayList<>();
+                String remaining = trimmed;
+                String actualCommand = "";
                 
-                // Handle check: prefix
-                if (prefix.startsWith("check:")) {
-                    String checkPart = prefix.substring(6);
-                    if (!checkPart.contains("! ")) {
+                while (remaining.startsWith("check:")) {
+                    int nextCheck = remaining.indexOf(" check:", 1);
+                    int firstExclamation = remaining.indexOf("! ");
+                    
+                    if (nextCheck > 0 && nextCheck < firstExclamation) {
+                        String condition = remaining.substring(6, nextCheck).trim();
+                        conditions.add(condition);
+                        remaining = remaining.substring(nextCheck);
+                    } else if (firstExclamation > 0) {
+                        String condition = remaining.substring(6, firstExclamation).trim();
+                        conditions.add(condition);
+                        actualCommand = remaining.substring(firstExclamation + 2).trim();
+                        break;
+                    } else {
                         validationWarnings.add("Template '" + templateName + 
-                            "': Invalid check format: " + trimmed);
-                        continue;
+                            "': Invalid check format (missing '! '): " + trimmed);
+                        break;
                     }
                 }
                 
-                // Handle random: prefix
+                if (conditions.isEmpty() || actualCommand.isEmpty()) {
+                    validationWarnings.add("Template '" + templateName + 
+                        "': Invalid check format: " + trimmed);
+                    continue;
+                }
+                
+                // Проверяем все условия
+                boolean validConditions = true;
+                String[] operators = {">=", "<=", "==", "!=", ">", "<", "!~", "!-", "-!", "~"};
+                for (String condition : conditions) {
+                    if (condition.isEmpty()) {
+                        validationWarnings.add("Template '" + templateName + 
+                            "': Empty condition in check command: " + trimmed);
+                        validConditions = false;
+                        break;
+                    }
+                    boolean hasOperator = false;
+                    for (String op : operators) {
+                        if (condition.contains(op)) {
+                            hasOperator = true;
+                            break;
+                        }
+                    }
+                    if (!hasOperator) {
+                        validationWarnings.add("Template '" + templateName + 
+                            "': Condition has no operator: " + condition);
+                        validConditions = false;
+                        break;
+                    }
+                }
+                
+                if (validConditions) {
+                    validated.add(trimmed);
+                }
+                continue;
+            }
+            
+            // Обработка обычных команд с префиксом
+            if (trimmed.contains("! ")) {
+                int firstExclamation = trimmed.indexOf("! ");
+                String prefix = trimmed.substring(0, firstExclamation).trim();
+                String content = trimmed.substring(firstExclamation + 2).trim();
+                
                 if (prefix.startsWith("random:")) {
                     try {
                         String chanceStr = prefix.substring(7);
@@ -475,56 +477,33 @@ public class TemplateConfig {
                             "': Invalid random chance: " + trimmed);
                         continue;
                     }
+                    validated.add(trimmed);
+                    continue;
                 }
                 
-                // Check if prefix is valid
-                String mainPrefix = prefix;
-                if (mainPrefix.startsWith("check:") || mainPrefix.startsWith("random:")) {
-                    // Extract actual prefix
-                    if (mainPrefix.startsWith("check:")) {
-                        String[] checkParts = mainPrefix.split("! ", 2);
-                        if (checkParts.length == 2) {
-                            mainPrefix = checkParts[1].trim();
-                        }
-                    } else if (mainPrefix.startsWith("random:")) {
-                        String[] randomParts = mainPrefix.split("! ", 2);
-                        if (randomParts.length == 2) {
-                            mainPrefix = randomParts[1].trim();
-                        }
-                    }
-                }
-                
-                // Check if main prefix is valid
-                if (!validPrefixes.contains(mainPrefix) && 
-                    !mainPrefix.startsWith("check:") && 
-                    !mainPrefix.startsWith("random:")) {
-                    validationWarnings.add("Template '" + templateName + 
-                        "': Unknown command prefix '" + mainPrefix + "' in: " + trimmed);
-                }
-                
-                validated.add(trimmed);
-            } else if (trimmed.startsWith("delay! ")) {
-                // Validate delay format
-                String[] parts = trimmed.split("! ", 2);
-                if (parts.length == 2) {
+                if (prefix.equals("delay")) {
                     try {
-                        int delay = Integer.parseInt(parts[1].trim());
+                        int delay = Integer.parseInt(content);
                         if (delay < 0) {
                             validationWarnings.add("Template '" + templateName + 
                                 "': Delay cannot be negative (" + delay + ")");
                             continue;
                         }
-                        validated.add(trimmed);
                     } catch (NumberFormatException e) {
                         validationWarnings.add("Template '" + templateName + 
                             "': Invalid delay format: " + trimmed);
                         continue;
                     }
-                } else {
-                    validationWarnings.add("Template '" + templateName + 
-                        "': Invalid delay format: " + trimmed);
+                    validated.add(trimmed);
                     continue;
                 }
+                
+                if (!validPrefixes.contains(prefix)) {
+                    validationWarnings.add("Template '" + templateName + 
+                        "': Unknown command prefix '" + prefix + "' in: " + trimmed);
+                }
+                
+                validated.add(trimmed);
             } else {
                 validationWarnings.add("Template '" + templateName + 
                     "': Unknown command format (missing '! '): " + trimmed);
@@ -534,9 +513,6 @@ public class TemplateConfig {
         return validated;
     }
     
-    /**
-     * Проверяет валидность цвета боссбара
-     */
     private boolean isValidBossBarColor(String color) {
         try {
             org.bukkit.boss.BarColor.valueOf(color.toUpperCase());
@@ -546,16 +522,10 @@ public class TemplateConfig {
         }
     }
     
-    /**
-     * Проверяет валидность сегментов
-     */
     private boolean isValidSegments(int segments) {
         return segments == 1 || segments == 6 || segments == 10 || segments == 12 || segments == 20;
     }
     
-    /**
-     * Проверяет валидность формата таймера
-     */
     private boolean isValidTimerFormat(String format) {
         return format.equals("HH:mm:ss") || 
                format.equals("mm:ss") || 
@@ -563,22 +533,15 @@ public class TemplateConfig {
                format.equals("ss");
     }
     
-    /**
-     * Проверяет валидность типа командного множителя
-     */
     private boolean isValidTeamMultiplierType(String type) {
         return type.equalsIgnoreCase("individual") || 
                type.equalsIgnoreCase("shared") || 
                type.equalsIgnoreCase("disabled");
     }
     
-    /**
-     * Проверяет валидность флагов региона
-     */
     private boolean isValidRegionFlags(String flags) {
         if (flags.isEmpty()) return true;
         
-        // Basic validation: check if it has proper format
         String clean = flags.replaceAll("[{}]", "");
         String[] entries = clean.split(",");
         
