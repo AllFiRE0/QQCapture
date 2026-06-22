@@ -1,6 +1,7 @@
 package com.qqcapture.commands;
 
 import com.qqcapture.QQCapture;
+import com.qqcapture.models.CaptureSession;  // ← ДОБАВЛЕН ИМПОРТ
 import com.qqcapture.models.Template;
 import com.qqcapture.utils.ColorUtils;
 import org.bukkit.command.Command;
@@ -46,11 +47,7 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         }
     }
     
-    /**
-     * Перезагрузка конфигурации
-     */
     private boolean handleReload(CommandSender sender) {
-        // Проверка прав
         if (!sender.hasPermission("qqcapture.admin.reload")) {
             sender.sendMessage(ColorUtils.colorize(
                 plugin.getLanguageManager().getMessage("command-no-permission")
@@ -59,17 +56,13 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         }
         
         try {
-            // Перезагружаем конфиг
             plugin.getConfigManager().reloadConfig();
-            
-            // Перезагружаем языки
             plugin.getLanguageManager().reloadLanguage();
             
             sender.sendMessage(ColorUtils.colorize(
                 plugin.getLanguageManager().getMessage("reload-success")
             ));
             
-            // Логируем в консоль
             plugin.getLogger().info("Configuration reloaded by " + sender.getName());
             
         } catch (Exception e) {
@@ -83,11 +76,7 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         return true;
     }
     
-    /**
-     * Запуск ивента
-     */
     private boolean handleStart(CommandSender sender, String[] args) {
-        // Проверка прав
         if (!sender.hasPermission("qqcapture.admin.start")) {
             sender.sendMessage(ColorUtils.colorize(
                 plugin.getLanguageManager().getMessage("command-no-permission")
@@ -106,7 +95,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         String pointsStr = args[2];
         boolean silent = args.length > 3 && args[3].equalsIgnoreCase("-s");
         
-        // Validate template
         if (!plugin.getConfigManager().templateExists(templateName)) {
             sender.sendMessage(ColorUtils.colorize(
                 plugin.getLanguageManager().getMessage("template-not-found")
@@ -115,7 +103,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         
-        // Validate points
         int points;
         try {
             points = Integer.parseInt(pointsStr);
@@ -128,7 +115,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         
-        // Start session
         Player starter = sender instanceof Player ? (Player) sender : null;
         boolean started = plugin.getSessionManager().startSession(templateName, points, silent, starter);
         
@@ -147,9 +133,7 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         return true;
     }
     
-    /**
-     * Остановка ивента
-     */
+    // ИСПРАВЛЕННЫЙ МЕТОД handleStop
     private boolean handleStop(CommandSender sender, String[] args) {
         if (!sender.hasPermission("qqcapture.admin.stop")) {
             sender.sendMessage(ColorUtils.colorize(
@@ -157,14 +141,14 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
             ));
             return true;
         }
-    
+        
         if (args.length < 2) {
             sender.sendMessage(ColorUtils.colorize("&cUsage: /qqcapture stop <template>"));
             return true;
         }
-    
+        
         String templateName = args[1];
-    
+        
         // Ищем сессию по имени шаблона
         CaptureSession session = null;
         for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
@@ -173,24 +157,20 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                 break;
             }
         }
-    
+        
         if (session == null) {
             sender.sendMessage(ColorUtils.colorize("&cNo active session found for template: " + templateName));
             return true;
         }
-    
+        
         plugin.getSessionManager().stopSession(session.getSessionId());
         sender.sendMessage(ColorUtils.colorize("&aSession for template '" + templateName + "' stopped!"));
         plugin.getLogger().info("Session " + session.getSessionId() + " stopped by " + sender.getName());
-    
+        
         return true;
     }
     
-    /**
-     * Список активных сессий
-     */
     private boolean handleList(CommandSender sender) {
-        // Проверка прав
         if (!sender.hasPermission("qqcapture.admin.list")) {
             sender.sendMessage(ColorUtils.colorize(
                 plugin.getLanguageManager().getMessage("command-no-permission")
@@ -220,11 +200,7 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         return true;
     }
     
-    /**
-     * Информация о шаблоне
-     */
     private boolean handleInfo(CommandSender sender, String[] args) {
-        // Проверка прав
         if (!sender.hasPermission("qqcapture.admin.info")) {
             sender.sendMessage(ColorUtils.colorize(
                 plugin.getLanguageManager().getMessage("command-no-permission")
@@ -255,19 +231,20 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ColorUtils.colorize("&eMultiplier: &f" + template.getMultiplier()));
         sender.sendMessage(ColorUtils.colorize("&eTeam multiplier: &f" + template.getTeamMultiplier()));
         sender.sendMessage(ColorUtils.colorize("&eRegion: &f" + (template.isRegionEnabled() ? template.getRegionName() : "None")));
-        sender.sendMessage(ColorUtils.colorize("&eCommands: &f" + template.getCommands().size()));
+        // ИСПРАВЛЕНО: показываем количество команд
+        sender.sendMessage(ColorUtils.colorize("&eStart commands: &f" + template.getStartCommands().size()));
+        sender.sendMessage(ColorUtils.colorize("&eTick commands: &f" + template.getTickCommands().size()));
+        sender.sendMessage(ColorUtils.colorize("&eEnd commands: &f" + template.getEndCommands().size()));
+        sender.sendMessage(ColorUtils.colorize("&eMax duration: &f" + (template.getMaxDuration() > 0 ? template.getMaxDuration() + "s" : "∞")));
         
         return true;
     }
     
-    /**
-     * Отправка помощи
-     */
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(ColorUtils.colorize("&6=== QQCapture Commands ==="));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture reload &7- Reload config and languages"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture start <template> <points> [-s] &7- Start an event"));
-        sender.sendMessage(ColorUtils.colorize("&e/qqcapture stop <sessionId> &7- Stop a session"));
+        sender.sendMessage(ColorUtils.colorize("&e/qqcapture stop <template> &7- Stop a session by template name"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture list &7- List active sessions"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture info <template> &7- Show template info"));
     }
@@ -277,7 +254,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
         
         if (args.length == 1) {
-            // Subcommands
             List<String> subCommands = new ArrayList<>(Arrays.asList("reload", "start", "stop", "list", "info"));
             for (String sub : subCommands) {
                 if (sub.startsWith(args[0].toLowerCase())) {
@@ -285,7 +261,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                 }
             }
         } else if (args.length == 2) {
-            // Template names or session IDs
             String subCommand = args[0].toLowerCase();
             if (subCommand.equals("start") || subCommand.equals("info")) {
                 for (String templateName : plugin.getConfigManager().getTemplateNames()) {
@@ -294,14 +269,13 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                     }
                 }
             } else if (subCommand.equals("stop")) {
-                for (var session : plugin.getSessionManager().getActiveSessions()) {
-                    if (session.getSessionId().toLowerCase().startsWith(args[1].toLowerCase())) {
-                        completions.add(session.getSessionId());
+                for (String templateName : plugin.getConfigManager().getTemplateNames()) {
+                    if (templateName.toLowerCase().startsWith(args[1].toLowerCase())) {
+                        completions.add(templateName);
                     }
                 }
             }
         } else if (args.length == 3) {
-            // Points suggestions
             if (args[0].equalsIgnoreCase("start")) {
                 completions.add("1000");
                 completions.add("10000");
@@ -309,7 +283,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                 completions.add("1000000");
             }
         } else if (args.length == 4) {
-            // Silent option
             if (args[0].equalsIgnoreCase("start") && "-s".startsWith(args[3].toLowerCase())) {
                 completions.add("-s");
             }
