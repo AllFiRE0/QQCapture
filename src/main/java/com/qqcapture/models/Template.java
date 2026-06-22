@@ -43,9 +43,10 @@ public class Template {
     private final String teamMultiplierType;
     private final double teamMultiplier;
     
+    // ===== ЗОНЫ (НОВОЕ) =====
+    private final Map<Integer, Zone> zones;
+    
     // Region
-    private final Location pos1;
-    private final Location pos2;
     private final String regionName;
     private final String regionFlags;
     
@@ -61,6 +62,36 @@ public class Template {
     private final boolean topStorageEnabled;
     private final int topStorageDuration;
     private final boolean topAutoClearOnStart;
+    
+    // ===== ВНУТРЕННИЙ КЛАСС ДЛЯ ЗОНЫ =====
+    public static class Zone {
+        private final Location pos1;
+        private final Location pos2;
+        
+        public Zone(Location pos1, Location pos2) {
+            this.pos1 = pos1;
+            this.pos2 = pos2;
+        }
+        
+        public Location getPos1() { return pos1; }
+        public Location getPos2() { return pos2; }
+        
+        public boolean isInZone(Location loc) {
+            if (loc == null || pos1 == null || pos2 == null || pos1.getWorld() == null) {
+                return false;
+            }
+            double minX = Math.min(pos1.getX(), pos2.getX());
+            double maxX = Math.max(pos1.getX(), pos2.getX());
+            double minY = Math.min(pos1.getY(), pos2.getY());
+            double maxY = Math.max(pos1.getY(), pos2.getY());
+            double minZ = Math.min(pos1.getZ(), pos2.getZ());
+            double maxZ = Math.max(pos1.getZ(), pos2.getZ());
+            
+            return loc.getX() >= minX && loc.getX() <= maxX &&
+                   loc.getY() >= minY && loc.getY() <= maxY &&
+                   loc.getZ() >= minZ && loc.getZ() <= maxZ;
+        }
+    }
     
     private Template(Builder builder) {
         this.name = builder.name;
@@ -88,8 +119,7 @@ public class Template {
         this.multiplier = builder.multiplier;
         this.teamMultiplierType = builder.teamMultiplierType;
         this.teamMultiplier = builder.teamMultiplier;
-        this.pos1 = builder.pos1;
-        this.pos2 = builder.pos2;
+        this.zones = builder.zones;
         this.regionName = builder.regionName;
         this.regionFlags = builder.regionFlags;
         this.startCommands = builder.startCommands;
@@ -127,8 +157,7 @@ public class Template {
     public double getMultiplier() { return multiplier; }
     public String getTeamMultiplierType() { return teamMultiplierType; }
     public double getTeamMultiplier() { return teamMultiplier; }
-    public Location getPos1() { return pos1; }
-    public Location getPos2() { return pos2; }
+    public Map<Integer, Zone> getZones() { return zones; }
     public String getRegionName() { return regionName; }
     public String getRegionFlags() { return regionFlags; }
     public List<String> getStartCommands() { return startCommands; }
@@ -139,10 +168,37 @@ public class Template {
     public int getTopStorageDuration() { return topStorageDuration; }
     public boolean isTopAutoClearOnStart() { return topAutoClearOnStart; }
     
+    // ===== ПРОВЕРКА В ЛЮБОЙ ЗОНЕ =====
+    public boolean isInAnyZone(Location loc) {
+        for (Zone zone : zones.values()) {
+            if (zone.isInZone(loc)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // ===== ПОЛУЧЕНИЕ ВСЕХ ИГРОКОВ В ЗОНАХ =====
+    public List<Player> getPlayersInZones() {
+        List<Player> result = new ArrayList<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (isInAnyZone(player.getLocation())) {
+                result.add(player);
+            }
+        }
+        return result;
+    }
+    
     // Helper methods
     public boolean hasValidPositions() {
-        return pos1 != null && pos2 != null && 
-               pos1.getWorld() != null && pos2.getWorld() != null;
+        if (zones.isEmpty()) return false;
+        for (Zone zone : zones.values()) {
+            if (zone.getPos1() == null || zone.getPos2() == null || 
+                zone.getPos1().getWorld() == null || zone.getPos2().getWorld() == null) {
+                return false;
+            }
+        }
+        return true;
     }
     
     public boolean isRegionEnabled() {
@@ -196,6 +252,7 @@ public class Template {
                ", needAmount=" + needAmount +
                ", minPlayers=" + minPlayers +
                ", maxPlayers=" + maxPlayers +
+               ", zones=" + zones.size() +
                ", regionName='" + regionName + '\'' +
                ", startCommands=" + (startCommands != null ? startCommands.size() : 0) +
                ", tickCommands=" + (tickCommands != null ? tickCommands.size() : 0) +
@@ -234,8 +291,7 @@ public class Template {
         private double multiplier = 0.00001;
         private String teamMultiplierType = "individual";
         private double teamMultiplier = 0.0;
-        private Location pos1 = new Location(null, 0, 0, 0);
-        private Location pos2 = new Location(null, 0, -1, 0);
+        private Map<Integer, Zone> zones = new LinkedHashMap<>();
         private String regionName = "";
         private String regionFlags = "";
         private List<String> startCommands = new ArrayList<>();
@@ -370,13 +426,8 @@ public class Template {
             return this;
         }
         
-        public Builder pos1(Location pos1) {
-            this.pos1 = pos1;
-            return this;
-        }
-        
-        public Builder pos2(Location pos2) {
-            this.pos2 = pos2;
+        public Builder zones(Map<Integer, Zone> zones) {
+            this.zones = zones;
             return this;
         }
         
@@ -426,16 +477,27 @@ public class Template {
         }
         
         public Template build() {
-            if (pos1 != null && pos1.getWorld() == null) {
+            // Если зоны пустые — создаем дефолтную
+            if (zones.isEmpty()) {
                 World defaultWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
-                if (defaultWorld != null) {
-                    pos1.setWorld(defaultWorld);
-                }
+                Location defaultPos1 = new Location(defaultWorld, 0, 0, 0);
+                Location defaultPos2 = new Location(defaultWorld, 0, -1, 0);
+                zones.put(1, new Zone(defaultPos1, defaultPos2));
             }
-            if (pos2 != null && pos2.getWorld() == null) {
-                World defaultWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
-                if (defaultWorld != null) {
-                    pos2.setWorld(defaultWorld);
+            
+            // Устанавливаем мир для всех зон
+            for (Zone zone : zones.values()) {
+                if (zone.getPos1() != null && zone.getPos1().getWorld() == null) {
+                    World defaultWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+                    if (defaultWorld != null) {
+                        zone.getPos1().setWorld(defaultWorld);
+                    }
+                }
+                if (zone.getPos2() != null && zone.getPos2().getWorld() == null) {
+                    World defaultWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+                    if (defaultWorld != null) {
+                        zone.getPos2().setWorld(defaultWorld);
+                    }
                 }
             }
             
