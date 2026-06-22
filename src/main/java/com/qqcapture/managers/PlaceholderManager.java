@@ -131,10 +131,18 @@ public class PlaceholderManager {
             property = property.substring(0, fallbackIndex);
         }
         
+        // ===== ИСПРАВЛЕНО: поиск сессии с учетом _override =====
         final String finalTemplateName = templateName;
         CaptureSession session = plugin.getSessionManager().getActiveSessionsMap()
             .values().stream()
-            .filter(s -> s.getTemplate().getName().equalsIgnoreCase(finalTemplateName))
+            .filter(s -> {
+                String name = s.getTemplate().getName();
+                // Убираем _override если есть
+                if (name.endsWith("_override")) {
+                    name = name.substring(0, name.length() - 9);
+                }
+                return name.equalsIgnoreCase(finalTemplateName);
+            })
             .findFirst()
             .orElse(null);
         
