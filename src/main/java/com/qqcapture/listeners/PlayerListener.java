@@ -23,11 +23,12 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        
+    
         // Check if player should see boss bars
         for (CaptureSession session : plugin.getSessionManager().getActiveSessions()) {
             Template template = session.getTemplate();
-            if (template.isSendOnRejoin()) {
+            // Проверяем: боссбар включен И нужно отправлять при перезаходе
+            if (template.isBossBarEnabled() && template.isSendOnRejoin()) {
                 // Check if player is in zone
                 if (isPlayerInZone(player, session)) {
                     plugin.getBossBarManager().showBossBar(player, session);
