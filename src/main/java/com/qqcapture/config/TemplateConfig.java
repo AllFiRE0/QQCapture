@@ -227,10 +227,10 @@ public class TemplateConfig {
         builder.multiplier(multiplier);
         
         // --- Team multiplier ---
-        String teamMultiplierType = section.getString("type-team-multiplier", "индивидуально");
+        String teamMultiplierType = section.getString("type-team-multiplier", "individual");
         if (!isValidTeamMultiplierType(teamMultiplierType)) {
-            validationWarnings.add("Template '" + name + "': Invalid team multiplier type '" + teamMultiplierType + "', using 'индивидуально'");
-            teamMultiplierType = "индивидуально";
+            validationWarnings.add("Template '" + name + "': Invalid team multiplier type '" + teamMultiplierType + "', using 'individual'");
+            teamMultiplierType = "individual";
         }
         builder.teamMultiplierType(teamMultiplierType);
         
