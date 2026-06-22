@@ -152,6 +152,11 @@ public class PlaceholderManager {
         if (session == null) {
             return fallback.isEmpty() ? "0" : fallback;
         }
+
+        // Обработка top_
+        if (property.startsWith("top_")) {
+            return parseTopPlaceholder(session, property, fallback);
+        }
         
         // Обработка свойства
         switch (property) {
@@ -166,8 +171,6 @@ public class PlaceholderManager {
             case "time":
                 long elapsed = System.currentTimeMillis() - session.getStartTime();
                 return formatTime(elapsed, session.getTemplate().getTimerFormat());
-            case "top":
-                return parseTopPlaceholder(session, property, fallback);
             case "participants":
                 return parseParticipantsPlaceholder(session, property, fallback);
             default:
