@@ -1,50 +1,91 @@
 package com.qqcapture.utils;
 
-public class MathUtils {
+import org.bukkit.Location;
+
+public class ValidationUtils {
     
-    public static int clamp(int value, int min, int max) {
-        return Math.max(min, Math.min(max, value));
-    }
-    
-    public static double clamp(double value, double min, double max) {
-        return Math.max(min, Math.min(max, value));
-    }
-    
-    public static long clamp(long value, long min, long max) {
-        return Math.max(min, Math.min(max, value));
-    }
-    
-    public static int percentage(int total, int part) {
-        if (total == 0) {
-            return 0;
+    public static boolean isNumeric(String str) {
+        if (str == null || str.isEmpty()) {
+            return false;
         }
-        return (int) ((double) part / total * 100);
-    }
-    
-    public static double percentage(double total, double part) {
-        if (total == 0) {
-            return 0;
+        try {
+            Double.parseDouble(str);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
         }
-        return (part / total) * 100;
     }
     
-    public static int roundToInt(double value) {
-        return (int) Math.round(value);
+    public static boolean isInteger(String str) {
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
+        try {
+            Integer.parseInt(str);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
     
-    public static boolean isEven(int number) {
-        return number % 2 == 0;
+    public static boolean isBoolean(String str) {
+        return str != null && (str.equalsIgnoreCase("true") || str.equalsIgnoreCase("false"));
     }
     
-    public static boolean isOdd(int number) {
-        return number % 2 != 0;
+    public static boolean isLocationValid(Location loc) {
+        return loc != null && loc.getWorld() != null;
     }
     
-    public static int getRandomInt(int min, int max) {
-        return (int) (Math.random() * (max - min + 1)) + min;
+    public static boolean isInBounds(Location loc, Location min, Location max) {
+        if (!isLocationValid(loc) || !isLocationValid(min) || !isLocationValid(max)) {
+            return false;
+        }
+        
+        double minX = Math.min(min.getX(), max.getX());
+        double maxX = Math.max(min.getX(), max.getX());
+        double minY = Math.min(min.getY(), max.getY());
+        double maxY = Math.max(min.getY(), max.getY());
+        double minZ = Math.min(min.getZ(), max.getZ());
+        double maxZ = Math.max(min.getZ(), max.getZ());
+        
+        return loc.getX() >= minX && loc.getX() <= maxX &&
+               loc.getY() >= minY && loc.getY() <= maxY &&
+               loc.getZ() >= minZ && loc.getZ() <= maxZ;
     }
     
-    public static double getRandomDouble(double min, double max) {
-        return Math.random() * (max - min) + min;
+    public static boolean isIntegerInRange(int value, int min, int max) {
+        return value >= min && value <= max;
+    }
+    
+    public static boolean isDoubleInRange(double value, double min, double max) {
+        return value >= min && value <= max;
+    }
+    
+    public static boolean isStringEmpty(String str) {
+        return str == null || str.trim().isEmpty();
+    }
+    
+    public static boolean isStringNotEmpty(String str) {
+        return !isStringEmpty(str);
+    }
+    
+    public static boolean isValidColor(String color) {
+        if (isStringEmpty(color)) return false;
+        try {
+            org.bukkit.ChatColor.valueOf(color.toUpperCase());
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+    
+    public static boolean isValidSound(String sound) {
+        if (isStringEmpty(sound)) return false;
+        try {
+            org.bukkit.Sound.valueOf(sound.toUpperCase());
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 }
