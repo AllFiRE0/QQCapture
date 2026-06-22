@@ -10,6 +10,7 @@ public class Template {
     private final String name;
     
     // BossBar settings
+    private final boolean bossBarEnabled;
     private final String bossBarColor;
     private final int bossBarUpdateTicks;
     private final String startText;
@@ -49,11 +50,16 @@ public class Template {
     private final String regionFlags;
     
     // Commands
-    private final boolean tickCommand;
-    private final List<String> commands;
+    private final List<String> startCommands;
+    private final List<String> tickCommands;
+    private final List<String> endCommands;
+    
+    // Max duration in seconds (0 = no limit)
+    private final int maxDuration;
     
     private Template(Builder builder) {
         this.name = builder.name;
+        this.bossBarEnabled = builder.bossBarEnabled;
         this.bossBarColor = builder.bossBarColor;
         this.bossBarUpdateTicks = builder.bossBarUpdateTicks;
         this.startText = builder.startText;
@@ -81,12 +87,15 @@ public class Template {
         this.pos2 = builder.pos2;
         this.regionName = builder.regionName;
         this.regionFlags = builder.regionFlags;
-        this.tickCommand = builder.tickCommand;
-        this.commands = builder.commands;
+        this.startCommands = builder.startCommands;
+        this.tickCommands = builder.tickCommands;
+        this.endCommands = builder.endCommands;
+        this.maxDuration = builder.maxDuration;
     }
     
     // Getters
     public String getName() { return name; }
+    public boolean isBossBarEnabled() { return bossBarEnabled; }
     public String getBossBarColor() { return bossBarColor; }
     public int getBossBarUpdateTicks() { return bossBarUpdateTicks; }
     public String getStartText() { return startText; }
@@ -114,8 +123,10 @@ public class Template {
     public Location getPos2() { return pos2; }
     public String getRegionName() { return regionName; }
     public String getRegionFlags() { return regionFlags; }
-    public boolean isTickCommand() { return tickCommand; }
-    public List<String> getCommands() { return commands; }
+    public List<String> getStartCommands() { return startCommands; }
+    public List<String> getTickCommands() { return tickCommands; }
+    public List<String> getEndCommands() { return endCommands; }
+    public int getMaxDuration() { return maxDuration; }
     
     // Helper methods
     public boolean hasValidPositions() {
@@ -127,8 +138,16 @@ public class Template {
         return regionName != null && !regionName.isEmpty();
     }
     
-    public boolean hasCommands() {
-        return commands != null && !commands.isEmpty();
+    public boolean hasStartCommands() {
+        return startCommands != null && !startCommands.isEmpty();
+    }
+    
+    public boolean hasTickCommands() {
+        return tickCommands != null && !tickCommands.isEmpty();
+    }
+    
+    public boolean hasEndCommands() {
+        return endCommands != null && !endCommands.isEmpty();
     }
     
     public boolean hasRules() {
@@ -155,6 +174,10 @@ public class Template {
         return multiplier > 0;
     }
     
+    public boolean hasMaxDuration() {
+        return maxDuration > 0;
+    }
+    
     @Override
     public String toString() {
         return "Template{" +
@@ -163,13 +186,17 @@ public class Template {
                ", minPlayers=" + minPlayers +
                ", maxPlayers=" + maxPlayers +
                ", regionName='" + regionName + '\'' +
-               ", commands=" + (commands != null ? commands.size() : 0) +
+               ", startCommands=" + (startCommands != null ? startCommands.size() : 0) +
+               ", tickCommands=" + (tickCommands != null ? tickCommands.size() : 0) +
+               ", endCommands=" + (endCommands != null ? endCommands.size() : 0) +
+               ", maxDuration=" + maxDuration +
                '}';
     }
     
     // Builder Pattern
     public static class Builder {
         private final String name;
+        private boolean bossBarEnabled = true;
         private String bossBarColor = "GREEN";
         private int bossBarUpdateTicks = 20;
         private String startText = "<gradient:#00FF00:#55FF55>Ивент начался!</gradient>";
@@ -197,11 +224,18 @@ public class Template {
         private Location pos2 = new Location(null, 0, -1, 0);
         private String regionName = "";
         private String regionFlags = "";
-        private boolean tickCommand = false;
-        private List<String> commands = new ArrayList<>();
+        private List<String> startCommands = new ArrayList<>();
+        private List<String> tickCommands = new ArrayList<>();
+        private List<String> endCommands = new ArrayList<>();
+        private int maxDuration = 0;
         
         public Builder(String name) {
             this.name = name;
+        }
+        
+        public Builder bossBarEnabled(boolean bossBarEnabled) {
+            this.bossBarEnabled = bossBarEnabled;
+            return this;
         }
         
         public Builder bossBarColor(String bossBarColor) {
@@ -339,13 +373,23 @@ public class Template {
             return this;
         }
         
-        public Builder tickCommand(boolean tickCommand) {
-            this.tickCommand = tickCommand;
+        public Builder startCommands(List<String> startCommands) {
+            this.startCommands = startCommands;
             return this;
         }
         
-        public Builder commands(List<String> commands) {
-            this.commands = commands;
+        public Builder tickCommands(List<String> tickCommands) {
+            this.tickCommands = tickCommands;
+            return this;
+        }
+        
+        public Builder endCommands(List<String> endCommands) {
+            this.endCommands = endCommands;
+            return this;
+        }
+        
+        public Builder maxDuration(int maxDuration) {
+            this.maxDuration = maxDuration;
             return this;
         }
         
