@@ -43,6 +43,8 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                 return handleList(sender);
             case "info":
                 return handleInfo(sender, args);
+            case "top":
+                return handleTop(sender, args);
             default:
                 sendHelp(sender);
                 return true;
@@ -93,7 +95,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         
         String templateName = args[1];
         
-        // Парсим параметры
         Map<String, String> params = parseParams(args);
         
         boolean silent = params.containsKey("s");
@@ -104,7 +105,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         String teamMultiplierStr = params.get("mt");
         String tickCaptureStr = params.get("t");
         
-        // Validate template
         if (!plugin.getConfigManager().templateExists(templateName)) {
             sender.sendMessage(ColorUtils.colorize(
                 plugin.getLanguageManager().getMessage("template-not-found")
@@ -121,7 +121,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         Double teamMultiplier = null;
         Integer tickCapture = null;
         
-        // Переопределяем параметры если указаны в команде
         if (pointsStr != null) {
             try {
                 points = Integer.parseInt(pointsStr);
@@ -191,7 +190,6 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
             }
         }
         
-        // Создаем копию шаблона с переопределенными параметрами
         Template finalTemplate = createOverriddenTemplate(template, points, duration, finalRegionName, 
                                                           multiplier, teamMultiplier, tickCapture);
         
@@ -246,10 +244,8 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
     
     private Template createOverriddenTemplate(Template original, int points, int duration, String regionName,
                                               Double multiplier, Double teamMultiplier, Integer tickCapture) {
-        // Создаем новый шаблон на основе оригинального с переопределенными параметрами
         Template.Builder builder = new Template.Builder(original.getName() + "_override");
         
-        // Копируем все настройки из оригинального шаблона
         builder.bossBarEnabled(original.isBossBarEnabled())
                .bossBarColor(original.getBossBarColor())
                .bossBarUpdateTicks(original.getBossBarUpdateTicks())
@@ -279,6 +275,9 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                .regionName(regionName)
                .regionFlags(original.getRegionFlags())
                .maxDuration(duration)
+               .topStorageEnabled(original.isTopStorageEnabled())
+               .topStorageDuration(original.getTopStorageDuration())
+               .topAutoClearOnStart(original.isTopAutoClearOnStart())
                .startCommands(original.getStartCommands())
                .tickCommands(original.getTickCommands())
                .endCommands(original.getEndCommands());
@@ -390,8 +389,88 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ColorUtils.colorize("&eStart commands: &f" + template.getStartCommands().size()));
         sender.sendMessage(ColorUtils.colorize("&eTick commands: &f" + template.getTickCommands().size()));
         sender.sendMessage(ColorUtils.colorize("&eEnd commands: &f" + template.getEndCommands().size()));
+        sender.sendMessage(ColorUtils.colorize("&eTop storage: &f" + (template.isTopStorageEnabled() ? "Enabled (" + template.getTopStorageDuration() + "s)" : "Disabled")));
         
         return true;
+    }
+    
+    private boolean handleTop(CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            sendTopHelp(sender);
+            return true;
+        }
+        
+        boolean silent = args.length > 0 && args[args.length - 1].equalsIgnoreCase("-s");
+        String action = args[1].toLowerCase();
+        String templateName = args[2];
+        
+        if (!action.equals("reset")) {
+            if (!silent) {
+                sender.sendMessage(ColorUtils.colorize("&cUnknown top action: " + action));
+            }
+            return true;
+        }
+        
+        if (!sender.hasPermission("qqcapture.admin.top")) {
+            if (!silent) {
+                sender.sendMessage(ColorUtils.colorize(
+                    plugin.getLanguageManager().getMessage("command-no-permission")
+                ));
+            }
+            return true;
+        }
+        
+        if (args.length < 4) {
+            if (!silent) {
+                sendTopHelp(sender);
+            }
+            return true;
+        }
+        
+        String target = args[3];
+        
+        if (target.equalsIgnoreCase("clear")) {
+            plugin.getTopStorageManager().clearTop(templateName);
+            if (!silent) {
+                sender.sendMessage(ColorUtils.colorize(
+                    plugin.getLanguageManager().getMessage("top-cleared")
+                        .replace("%template%", templateName)
+                ));
+            }
+            plugin.getLogger().info("Top data for template '" + templateName + "' cleared by " + sender.getName());
+            return true;
+        } else {
+            if (args.length < 5 || !args[4].equalsIgnoreCase("reset")) {
+                if (!silent) {
+                    sendTopHelp(sender);
+                }
+                return true;
+            }
+            
+            boolean removed = plugin.getTopStorageManager().removePlayerFromTop(templateName, target);
+            if (!silent) {
+                if (removed) {
+                    sender.sendMessage(ColorUtils.colorize(
+                        plugin.getLanguageManager().getMessage("top-player-removed")
+                            .replace("%template%", templateName)
+                            .replace("%player%", target)
+                    ));
+                } else {
+                    sender.sendMessage(ColorUtils.colorize(
+                        plugin.getLanguageManager().getMessage("top-player-not-found")
+                            .replace("%template%", templateName)
+                            .replace("%player%", target)
+                    ));
+                }
+            }
+            plugin.getLogger().info("Player '" + target + "' removed from top data for template '" + templateName + "' by " + sender.getName());
+            return true;
+        }
+    }
+    
+    private void sendTopHelp(CommandSender sender) {
+        sender.sendMessage(ColorUtils.colorize("&cUsage: /qqcapture top reset <template> clear [-s]"));
+        sender.sendMessage(ColorUtils.colorize("&cUsage: /qqcapture top reset <template> <player> reset [-s]"));
     }
     
     private void sendHelp(CommandSender sender) {
@@ -401,6 +480,8 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture stop <template> &7- Stop a session by template name"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture list &7- List active sessions"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture info <template> &7- Show template info"));
+        sender.sendMessage(ColorUtils.colorize("&e/qqcapture top reset <template> clear [-s] &7- Clear top data"));
+        sender.sendMessage(ColorUtils.colorize("&e/qqcapture top reset <template> <player> reset [-s] &7- Remove player from top"));
     }
     
     @Override
@@ -408,21 +489,40 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
         
         if (args.length == 1) {
-            List<String> subCommands = new ArrayList<>(Arrays.asList("reload", "start", "stop", "list", "info"));
+            List<String> subCommands = new ArrayList<>(Arrays.asList("reload", "start", "stop", "list", "info", "top"));
             for (String sub : subCommands) {
                 if (sub.startsWith(args[0].toLowerCase())) {
                     completions.add(sub);
                 }
             }
         } else if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("start") || args[0].equalsIgnoreCase("info") || args[0].equalsIgnoreCase("stop")) {
+            if (args[0].equalsIgnoreCase("top")) {
+                completions.add("reset");
+            } else if (args[0].equalsIgnoreCase("start") || args[0].equalsIgnoreCase("info") || args[0].equalsIgnoreCase("stop")) {
                 for (String templateName : plugin.getConfigManager().getTemplateNames()) {
                     if (templateName.toLowerCase().startsWith(args[1].toLowerCase())) {
                         completions.add(templateName);
                     }
                 }
             }
-        } else if (args.length >= 3) {
+        } else if (args.length == 3) {
+            if (args[0].equalsIgnoreCase("start") && args[0].equalsIgnoreCase("top")) {
+                for (String templateName : plugin.getConfigManager().getTemplateNames()) {
+                    if (templateName.toLowerCase().startsWith(args[2].toLowerCase())) {
+                        completions.add(templateName);
+                    }
+                }
+            }
+        } else if (args.length == 4) {
+            if (args[0].equalsIgnoreCase("top") && args[1].equalsIgnoreCase("reset")) {
+                completions.add("clear");
+                for (String templateName : plugin.getConfigManager().getTemplateNames()) {
+                    if (templateName.toLowerCase().startsWith(args[3].toLowerCase())) {
+                        completions.add(templateName);
+                    }
+                }
+            }
+        } else if (args.length >= 5) {
             if (args[0].equalsIgnoreCase("start")) {
                 String lastArg = args[args.length - 1];
                 String[] options = {"-p:", "-d:", "-r:", "-m:", "-mt:", "-t:", "-s"};
@@ -431,6 +531,9 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                         completions.add(option);
                     }
                 }
+            }
+            if (args[0].equalsIgnoreCase("top") && args[1].equalsIgnoreCase("reset") && args[4].equalsIgnoreCase("reset")) {
+                completions.add("-s");
             }
         }
         
