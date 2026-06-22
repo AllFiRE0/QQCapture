@@ -11,7 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashMap;  // ← ДОБАВЛЕНО
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -156,7 +156,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             property = property.substring(0, fallbackIndex);
         }
         
-        // ===== ИЩЕМ АКТИВНУЮ СЕССИЮ =====
         CaptureSession targetSession = null;
         
         if (templateName != null) {
@@ -174,7 +173,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             return parseTopPlaceholder(templateName, targetSession, property, fallback);
         }
         
-        // ===== ЕСЛИ НЕТ АКТИВНОЙ СЕССИИ - ПРОВЕРЯЕМ ЗАВЕРШЕННУЮ =====
         if (targetSession == null && templateName != null) {
             CaptureSession.SessionSnapshot snapshot = CaptureSession.getCompletedSession(templateName);
             if (snapshot != null) {
@@ -254,74 +252,50 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
     }
     
     private String parseTopPlaceholder(String templateName, CaptureSession session, String property, String fallback) {
-        if (plugin.getConfigManager().isDebug()) {
-            if (session != null) {
-                plugin.getLogger().info("QQCapturePlaceholders - session players count: " + session.getPlayers().size());
-                for (Map.Entry<UUID, PlayerData> entry : session.getPlayers().entrySet()) {
-                    plugin.getLogger().info("  Player: " + entry.getValue().getPlayerName() + " - " + entry.getValue().getContribution());
-                }
-            } else {
-                plugin.getLogger().info("QQCapturePlaceholders - session is null");
-            }
-        }
-        String withoutTop = property.substring("top_".length());
-        String[] parts = withoutTop.split("_", 2);
+        // ===== ПРОВЕРЯЕМ ХРАНИЛИЩЕ =====
+        TopStorageManager storage = plugin.getTopStorageManager();
+        List<TopStorageManager.TopEntry> entries = storage.getTop(templateName);
         
-        if (parts.length < 2) {
+        String[] parts = property.split("_");
+        if (parts.length < 3) {
             return fallback.isEmpty() ? "0" : fallback;
         }
         
         try {
-            int position = Integer.parseInt(parts[0]);
-            String type = parts[1];
+            int position = Integer.parseInt(parts[1]);
+            String type = parts[2];
             
-            Map<UUID, Integer> contributions = null;
-            Map<UUID, String> playerNames = null;
+            // === СНАЧАЛА ИЗ ФАЙЛА ===
+            if (!entries.isEmpty() && position <= entries.size()) {
+                TopStorageManager.TopEntry entry = entries.get(position - 1);
+                if (type.equals("name")) {
+                    return entry.getPlayerName() != null ? entry.getPlayerName() : fallback;
+                } else if (type.equals("value") || type.equals("points")) {
+                    return String.valueOf(entry.getPoints());
+                }
+            }
             
-            // ===== СНАЧАЛА ПРОВЕРЯЕМ АКТИВНУЮ СЕССИЮ =====
+            // === ЕСЛИ НЕТ В ФАЙЛЕ — ИЗ АКТИВНОЙ СЕССИИ ===
             if (session != null && !session.getPlayers().isEmpty()) {
-                contributions = new HashMap<>();
-                playerNames = new HashMap<>();
-                for (Map.Entry<UUID, PlayerData> entry : session.getPlayers().entrySet()) {
-                    contributions.put(entry.getKey(), entry.getValue().getContribution());
-                    playerNames.put(entry.getKey(), entry.getValue().getPlayerName());
+                List<Map.Entry<UUID, PlayerData>> sorted = session.getPlayers().entrySet().stream()
+                    .sorted((e1, e2) -> Integer.compare(e2.getValue().getContribution(), e1.getValue().getContribution()))
+                    .toList();
+                
+                if (position <= sorted.size()) {
+                    Map.Entry<UUID, PlayerData> entry = sorted.get(position - 1);
+                    if (type.equals("name")) {
+                        OfflinePlayer topPlayer = Bukkit.getOfflinePlayer(entry.getKey());
+                        return topPlayer.getName() != null ? topPlayer.getName() : fallback;
+                    } else if (type.equals("value") || type.equals("points")) {
+                        return String.valueOf(entry.getValue().getContribution());
+                    }
                 }
-            }
-            
-            // ===== ИЛИ ПРОВЕРЯЕМ ЗАВЕРШЕННУЮ СЕССИЮ =====
-            if ((contributions == null || contributions.isEmpty()) && templateName != null) {
-                CaptureSession.SessionSnapshot snapshot = CaptureSession.getCompletedSession(templateName);
-                if (snapshot != null) {
-                    contributions = snapshot.getContributions();
-                    playerNames = snapshot.getPlayerNames();
-                }
-            }
-            
-            if (contributions == null || contributions.isEmpty()) {
-                return fallback.isEmpty() ? "0" : fallback;
-            }
-            
-            List<Map.Entry<UUID, Integer>> sorted = contributions.entrySet().stream()
-                .sorted((e1, e2) -> Integer.compare(e2.getValue(), e1.getValue()))
-                .toList();
-            
-            if (position > sorted.size()) {
-                return fallback.isEmpty() ? "0" : fallback;
-            }
-            
-            Map.Entry<UUID, Integer> entry = sorted.get(position - 1);
-            OfflinePlayer topPlayer = Bukkit.getOfflinePlayer(entry.getKey());
-            
-            if (type.equals("name")) {
-                String name = playerNames != null ? playerNames.get(entry.getKey()) : null;
-                if (name != null && !name.isEmpty()) return name;
-                return topPlayer.getName() != null ? topPlayer.getName() : fallback;
-            } else if (type.equals("value") || type.equals("points")) {
-                return String.valueOf(entry.getValue());
             }
             
         } catch (NumberFormatException e) {
-            // Invalid position
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().warning("Invalid top placeholder format: " + property);
+            }
         }
         
         return fallback.isEmpty() ? "0" : fallback;
