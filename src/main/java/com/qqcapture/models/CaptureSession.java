@@ -46,7 +46,7 @@ public class CaptureSession {
         this.lastCaptureTick = 0;
         
         // Start boss bar with delay
-        startBossBarWithDelay();  // ← ИЗМЕНЕНО
+        startBossBarWithDelay();
         
         // Start capture task
         startCaptureTask();
@@ -56,6 +56,18 @@ public class CaptureSession {
         
         // Execute start commands
         executeStartCommands();
+
+        // ← НОВЫЙ БЛОК: Добавляем игроков, уже находящихся в зоне
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (isInZone(player.getLocation(), template.getPos1(), template.getPos2())) {
+                if (!players.containsKey(player.getUniqueId())) {
+                    addPlayer(player);
+                    if (plugin.getConfigManager().isDebug()) {
+                        plugin.getLogger().info("Player " + player.getName() + " already in zone, added to session");
+                    }
+                }
+            }
+        }
         
         // Initialize region if needed
         if (!template.getRegionName().isEmpty()) {
@@ -63,7 +75,6 @@ public class CaptureSession {
         }
     }
     
-    // ← НОВЫЙ МЕТОД
     private void startBossBarWithDelay() {
         int startDelay = template.getStartDelay();
         if (startDelay <= 0) {
@@ -347,10 +358,10 @@ public class CaptureSession {
         if (durationTask != null) {
             durationTask.cancel();
         }
-        if (startDelayTask != null) {  // ← ДОБАВЛЕНО
+        if (startDelayTask != null) {
             startDelayTask.cancel();
         }
-        if (endDelayTask != null) {    // ← ДОБАВЛЕНО
+        if (endDelayTask != null) {
             endDelayTask.cancel();
         }
     }
