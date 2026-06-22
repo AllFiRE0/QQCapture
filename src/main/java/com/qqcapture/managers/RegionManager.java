@@ -43,50 +43,56 @@ public class RegionManager {
         if (!enabled) {
             return;
         }
-        
+    
         String regionName = session.getTemplate().getRegionName();
         if (regionName == null || regionName.isEmpty()) {
             return;
         }
-        
+    
         try {
-            World world = session.getTemplate().getPos1().getWorld();
+            // Берем первую зону для создания региона
+            Template.Zone firstZone = session.getTemplate().getZones().values().stream().findFirst().orElse(null);
+            if (firstZone == null) {
+                plugin.getLogger().warning("No zones found for template: " + session.getTemplate().getName());
+                return;
+            }
+        
+            World world = firstZone.getPos1().getWorld();
             if (world == null) {
                 world = plugin.getServer().getWorlds().get(0);
             }
-            
+        
             RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-            // ИСПОЛЬЗУЙ ПОЛНОЕ ИМЯ ВМЕСТО ИМПОРТА:
             com.sk89q.worldguard.protection.managers.RegionManager manager = container.get(com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world));
-            
+        
             if (manager == null) {
                 plugin.getLogger().warning("Could not get RegionManager for world: " + world.getName());
                 return;
             }
-            
+        
             ProtectedRegion region = manager.getRegion(regionName);
             if (region == null) {
                 com.sk89q.worldedit.math.BlockVector3 min = com.sk89q.worldedit.math.BlockVector3.at(
-                    Math.min(session.getTemplate().getPos1().getBlockX(), session.getTemplate().getPos2().getBlockX()),
-                    Math.min(session.getTemplate().getPos1().getBlockY(), session.getTemplate().getPos2().getBlockY()),
-                    Math.min(session.getTemplate().getPos1().getBlockZ(), session.getTemplate().getPos2().getBlockZ())
+                    Math.min(firstZone.getPos1().getBlockX(), firstZone.getPos2().getBlockX()),
+                    Math.min(firstZone.getPos1().getBlockY(), firstZone.getPos2().getBlockY()),
+                    Math.min(firstZone.getPos1().getBlockZ(), firstZone.getPos2().getBlockZ())
                 );
                 com.sk89q.worldedit.math.BlockVector3 max = com.sk89q.worldedit.math.BlockVector3.at(
-                    Math.max(session.getTemplate().getPos1().getBlockX(), session.getTemplate().getPos2().getBlockX()),
-                    Math.max(session.getTemplate().getPos1().getBlockY(), session.getTemplate().getPos2().getBlockY()),
-                    Math.max(session.getTemplate().getPos1().getBlockZ(), session.getTemplate().getPos2().getBlockZ())
+                    Math.max(firstZone.getPos1().getBlockX(), firstZone.getPos2().getBlockX()),
+                    Math.max(firstZone.getPos1().getBlockY(), firstZone.getPos2().getBlockY()),
+                    Math.max(firstZone.getPos1().getBlockZ(), firstZone.getPos2().getBlockZ())
                 );
-                
+            
                 region = new ProtectedCuboidRegion(regionName, min, max);
                 manager.addRegion(region);
             }
-            
+        
             applyRegionFlags(region, session.getTemplate().getRegionFlags());
-            
+        
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("Region setup: " + regionName + " for session " + session.getSessionId());
             }
-            
+        
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to setup region: " + regionName);
             e.printStackTrace();
