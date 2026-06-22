@@ -53,7 +53,6 @@ public class LanguageManager {
             } else {
                 InputStream inputStream = plugin.getResource("languages/" + languageCode + ".yml");
                 if (inputStream == null) {
-                    // Только логируем в debug режиме
                     if (debugMode) {
                         plugin.getLogger().info("Language file not found: " + languageCode);
                     }
