@@ -27,6 +27,8 @@ public class CaptureSession {
     private BukkitRunnable bossBarTask;
     private BukkitRunnable captureTask;
     private BukkitRunnable durationTask;
+    private BukkitRunnable startDelayTask;  // ← ДОБАВЛЕНО
+    private BukkitRunnable endDelayTask;    // ← ДОБАВЛЕНО
     
     public CaptureSession(String sessionId, Template template, int targetPoints, boolean silent, Player starter) {
         this.plugin = QQCapture.getInstance();
@@ -43,8 +45,8 @@ public class CaptureSession {
         this.tickCounter = 0;
         this.lastCaptureTick = 0;
         
-        // Start boss bar task
-        startBossBarTask();
+        // Start boss bar with delay
+        startBossBarWithDelay();  // ← ИЗМЕНЕНО
         
         // Start capture task
         startCaptureTask();
@@ -59,6 +61,25 @@ public class CaptureSession {
         if (!template.getRegionName().isEmpty()) {
             QQCapture.getInstance().getRegionManager().setupRegion(this);
         }
+    }
+    
+    // ← НОВЫЙ МЕТОД
+    private void startBossBarWithDelay() {
+        int startDelay = template.getStartDelay();
+        if (startDelay <= 0) {
+            startBossBarTask();
+            return;
+        }
+        
+        startDelayTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!stopped && !complete) {
+                    startBossBarTask();
+                }
+            }
+        };
+        startDelayTask.runTaskLater(QQCapture.getInstance(), startDelay * 20L);
     }
     
     private void startBossBarTask() {
@@ -117,14 +138,13 @@ public class CaptureSession {
                 
                 long elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000;
                 if (elapsedSeconds >= maxDuration) {
-                    // Force complete session
                     complete = true;
                     List<Player> allPlayers = new ArrayList<>(Bukkit.getOnlinePlayers());
                     onComplete(allPlayers);
                 }
             }
         };
-        durationTask.runTaskTimer(QQCapture.getInstance(), 0L, 20L); // Проверяем каждую секунду
+        durationTask.runTaskTimer(QQCapture.getInstance(), 0L, 20L);
     }
     
     private void executeStartCommands() {
@@ -136,15 +156,12 @@ public class CaptureSession {
     }
     
     private void processCaptureTick() {
-        // Get players in zone
         List<Player> playersInZone = getPlayersInZone();
 
-        // Debug
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("processCaptureTick: " + playersInZone.size() + " players in zone");
         }
     
-        // Check minimum players
         if (playersInZone.size() < template.getMinPlayers()) {
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("Not enough players: " + playersInZone.size() + " < " + template.getMinPlayers());
@@ -152,29 +169,24 @@ public class CaptureSession {
             return;
         }
         
-        // Check maximum players
         int maxPlayers = template.getMaxPlayers();
         List<Player> activePlayers = playersInZone;
         if (maxPlayers > 0 && playersInZone.size() > maxPlayers) {
             activePlayers = new ArrayList<>(playersInZone.subList(0, maxPlayers));
         }
         
-        // Calculate capture points
         int pointsToAdd = 0;
         Map<UUID, Integer> playerContributions = new HashMap<>();
         
         for (Player player : activePlayers) {
-            // Check individual conditions
             if (!QQCapture.getInstance().getConditionManager().checkPlayerConditions(player, template)) {
                 continue;
             }
             
-            // Check all players conditions
             if (!QQCapture.getInstance().getConditionManager().checkAllPlayersConditions(activePlayers, template)) {
                 continue;
             }
             
-            // Calculate points with multiplier
             double playerMultiplier = template.getMultiplier();
             int contribution = 0;
             if (playerMultiplier > 0) {
@@ -182,20 +194,17 @@ public class CaptureSession {
                 pointsToAdd += contribution;
             }
             
-            // Add player to session data
             PlayerData data = players.computeIfAbsent(player.getUniqueId(), 
                 k -> new PlayerData(player));
             data.addContribution(contribution);
             playerContributions.put(player.getUniqueId(), contribution);
         }
         
-        // Apply team multiplier
         if (template.getTeamMultiplier() > 0 && !activePlayers.isEmpty()) {
             double teamMultiplier = template.getTeamMultiplier();
             String teamType = template.getTeamMultiplierType();
             
             if ("individual".equalsIgnoreCase(teamType)) {
-                // Individual team multiplier
                 for (Player player : activePlayers) {
                     PlayerData data = players.get(player.getUniqueId());
                     if (data != null) {
@@ -206,7 +215,6 @@ public class CaptureSession {
                     }
                 }
             } else if ("shared".equalsIgnoreCase(teamType)) {
-                // Shared team multiplier
                 int totalPoints = playerContributions.values().stream().mapToInt(Integer::intValue).sum();
                 int bonus = (int) (totalPoints * teamMultiplier);
                 int bonusPerPlayer = activePlayers.isEmpty() ? 0 : bonus / activePlayers.size();
@@ -219,19 +227,15 @@ public class CaptureSession {
                 }
                 pointsToAdd += bonus;
             }
-            // Если "disabled" - ничего не делаем
         }
         
-        // Update current points
         currentPoints = Math.min(currentPoints + pointsToAdd, targetPoints);
         
-        // Execute tick commands
         List<String> tickCommands = template.getTickCommands();
         if (tickCommands != null && !tickCommands.isEmpty()) {
             QQCapture.getInstance().getCommandManager().executeCommands(this, activePlayers);
         }
         
-        // Check if completed
         if (currentPoints >= targetPoints) {
             complete = true;
             onComplete(activePlayers);
@@ -253,12 +257,10 @@ public class CaptureSession {
     }
     
     private boolean isInZone(Location loc, Location pos1, Location pos2) {
-        // Check WorldGuard region first if defined
         if (!template.getRegionName().isEmpty()) {
             return QQCapture.getInstance().getRegionManager().isPlayerInRegion(loc, template.getRegionName());
         }
         
-        // Check cuboid area
         double minX = Math.min(pos1.getX(), pos2.getX());
         double maxX = Math.max(pos1.getX(), pos2.getX());
         double minY = Math.min(pos1.getY(), pos2.getY());
@@ -272,28 +274,39 @@ public class CaptureSession {
     }
     
     private void updateBossBars() {
-        // Update boss bar for all online players
         QQCapture.getInstance().getBossBarManager().updateBossBar(this);
     }
     
     private void onComplete(List<Player> playersInZone) {
-        // Execute end commands
         List<String> endCommands = template.getEndCommands();
         if (endCommands != null && !endCommands.isEmpty()) {
             QQCapture.getInstance().getCommandManager().executeCommands(this, playersInZone);
         }
         
-        // Show completion message
         if (!silent) {
             String message = QQCapture.getInstance().getLanguageManager().getMessage("session-ended")
                 .replace("%template%", template.getName());
             Bukkit.broadcastMessage(ColorUtils.colorize(message));
         }
         
-        // Stop session after delay
-        Bukkit.getScheduler().runTaskLater(QQCapture.getInstance(), 
-            () -> QQCapture.getInstance().getSessionManager().stopSession(sessionId), 
-            template.getEndDelay() * 20L);
+        // ← ДОБАВЛЕНА ЗАДЕРЖКА ПЕРЕД ОСТАНОВКОЙ
+        int endDelay = template.getEndDelay();
+        if (endDelay > 0) {
+            endDelayTask = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    for (Player player : Bukkit.getOnlinePlayers()) {
+                        QQCapture.getInstance().getBossBarManager().hideBossBar(player, CaptureSession.this);
+                    }
+                    QQCapture.getInstance().getSessionManager().stopSession(sessionId);
+                }
+            };
+            endDelayTask.runTaskLater(QQCapture.getInstance(), endDelay * 20L);
+        } else {
+            Bukkit.getScheduler().runTaskLater(QQCapture.getInstance(), 
+                () -> QQCapture.getInstance().getSessionManager().stopSession(sessionId), 
+                template.getEndDelay() * 20L);
+        }
     }
     
     public void addPlayer(Player player) {
@@ -331,10 +344,15 @@ public class CaptureSession {
         if (durationTask != null) {
             durationTask.cancel();
         }
+        if (startDelayTask != null) {  // ← ДОБАВЛЕНО
+            startDelayTask.cancel();
+        }
+        if (endDelayTask != null) {    // ← ДОБАВЛЕНО
+            endDelayTask.cancel();
+        }
     }
     
     public void update() {
-        // Update player positions and conditions
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (players.containsKey(player.getUniqueId())) {
                 Location loc = player.getLocation();
