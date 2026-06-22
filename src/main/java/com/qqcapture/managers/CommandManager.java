@@ -199,7 +199,10 @@ public class CommandManager {
     }
     
     private boolean checkCondition(Player player, String condition) {
-        return plugin.getConditionManager().evaluateCondition(player, condition);
+        Template tempTemplate = new Template.Builder("temp")
+            .condition(condition)
+            .build();
+        return plugin.getConditionManager().checkPlayerConditions(player, tempTemplate);
     }
     
     private void executeSound(Player player, String soundString) {
