@@ -1,4 +1,4 @@
-package com.qqcapture.managers;
+package com.qqcapture.config;
 
 import com.qqcapture.QQCapture;
 import org.bukkit.configuration.file.FileConfiguration;
