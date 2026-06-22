@@ -1,4 +1,4 @@
-package com.qqcapture.config;
+package com.qqcapture.managers;
 
 import com.qqcapture.QQCapture;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -15,12 +15,13 @@ public class LanguageManager {
     private final QQCapture plugin;
     private final Map<String, Map<String, String>> messages;
     private String currentLanguage;
+    private boolean debugMode;
     
     public LanguageManager(QQCapture plugin) {
         this.plugin = plugin;
         this.messages = new HashMap<>();
+        this.debugMode = plugin.getConfigManager().isDebug();
         
-        // Создаем папку languages если её нет
         File langDir = new File(plugin.getDataFolder(), "languages");
         if (!langDir.exists()) {
             langDir.mkdirs();
@@ -30,14 +31,12 @@ public class LanguageManager {
     }
     
     private void loadLanguages() {
-        // Load default languages
         loadLanguageFile("ru");
         loadLanguageFile("en");
         loadLanguageFile("zh");
         loadLanguageFile("ko");
         loadLanguageFile("ja");
         
-        // Set current language
         currentLanguage = plugin.getConfigManager().getLanguage();
         if (!messages.containsKey(currentLanguage)) {
             currentLanguage = "en";
@@ -52,17 +51,17 @@ public class LanguageManager {
             if (langFile.exists()) {
                 langConfig = YamlConfiguration.loadConfiguration(langFile);
             } else {
-                // Load from resources
                 InputStream inputStream = plugin.getResource("languages/" + languageCode + ".yml");
                 if (inputStream == null) {
-                    plugin.getLogger().warning("Language file not found in resources: " + languageCode);
+                    // Только логируем в debug режиме
+                    if (debugMode) {
+                        plugin.getLogger().info("Language file not found: " + languageCode);
+                    }
                     return;
                 }
                 langConfig = YamlConfiguration.loadConfiguration(
                     new InputStreamReader(inputStream, StandardCharsets.UTF_8)
                 );
-                
-                // Save to disk for editing
                 langConfig.save(langFile);
             }
             
@@ -75,18 +74,21 @@ public class LanguageManager {
             }
             
             messages.put(languageCode, langMessages);
-            plugin.getLogger().info("Loaded language: " + languageCode + " (" + langMessages.size() + " messages)");
+            if (debugMode) {
+                plugin.getLogger().info("Loaded language: " + languageCode + " (" + langMessages.size() + " messages)");
+            }
             
         } catch (Exception e) {
-            plugin.getLogger().warning("Failed to load language: " + languageCode);
-            e.printStackTrace();
+            if (debugMode) {
+                plugin.getLogger().warning("Failed to load language: " + languageCode);
+                e.printStackTrace();
+            }
         }
     }
     
     public String getMessage(String key) {
         Map<String, String> langMessages = messages.get(currentLanguage);
         if (langMessages == null || !langMessages.containsKey(key)) {
-            // Try English fallback
             Map<String, String> enMessages = messages.get("en");
             if (enMessages != null && enMessages.containsKey(key)) {
                 return enMessages.get(key);
@@ -106,6 +108,7 @@ public class LanguageManager {
     
     public void reloadLanguage() {
         messages.clear();
+        this.debugMode = plugin.getConfigManager().isDebug();
         loadLanguages();
     }
     
