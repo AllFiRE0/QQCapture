@@ -187,8 +187,11 @@ public class TemplateConfig {
             minPlayers = 0;
         }
         builder.minPlayers(minPlayers);
-        
-        int maxPlayers = section.getInt("max-players", 30);
+
+        int maxPlayers = section.getInt("max-players", -1);
+        if (maxPlayers < 0) {
+            maxPlayers = plugin.getConfigManager().getDefaultMaxPlayers();
+        }
         if (maxPlayers < 0) {
             validationWarnings.add("Template '" + name + "': Max players cannot be negative (" + maxPlayers + "), using 0");
             maxPlayers = 0;
