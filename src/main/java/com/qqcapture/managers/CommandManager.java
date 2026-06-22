@@ -1,5 +1,10 @@
 package com.qqcapture.managers;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
+import net.kyori.adventure.util.Ticks;
 import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.PlayerData;
@@ -201,10 +206,23 @@ public class CommandManager {
     // ===== ЦВЕТА И ФОРМАТИРОВАНИЕ =====
     
     private Component parseMessage(String message) {
+        if (message == null || message.isEmpty()) {
+            return Component.empty();
+        }
         // Конвертация CMI градиентов {#FF5555>}текст{<#00FF00}
         message = message.replaceAll("\\{#([A-Fa-f0-9]{6})>\\}(.*?)\\{#([A-Fa-f0-9]{6})<\\}",
                                        "<gradient:#$1:#$3>$2</gradient>");
-        // Если есть MiniMessage теги
+
+        // 2. CMI цвета с HEX {#FF5555} → <#FF5555>
+        message = message.replaceAll("\\{#([A-Fa-f0-9]{6})\\}", "<#$1>");
+    
+        // 3. CMI цвета с именами {#red} → <red>
+        message = message.replaceAll("\\{#([a-zA-Z]+)\\}", "<#$1>");
+    
+        // 4. Квадратные скобки [#FF5555] → <#FF5555>
+        message = message.replaceAll("\\[#([A-Fa-f0-9]{6})\\]", "<#$1>");
+        
+        // 5. Если есть MiniMessage теги
         if (message.contains("<gradient:") || message.contains("<#") || message.contains("<color:")) {
             try {
                 return MiniMessage.miniMessage().deserialize(message);
@@ -462,13 +480,18 @@ public class CommandManager {
         String text = plugin.getPlaceholderManager().parsePlaceholders(player, titleText);
         Component title;
         Component subtitle = Component.empty();
+    
+        // Ищем \n (один обратный слеш)
         if (text.contains("\\n")) {
-            String[] parts = text.split("\\\\n", 2);
+            String[] parts = text.split("\\n", 2);
             title = parseMessage(parts[0]);
-            subtitle = parseMessage(parts[1]);
+            if (parts.length > 1) {
+                subtitle = parseMessage(parts[1]);
+            }
         } else {
             title = parseMessage(text);
         }
+    
         Title.Times times = Title.Times.times(
             Ticks.duration(fadeIn),
             Ticks.duration(stay),
