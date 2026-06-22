@@ -27,6 +27,11 @@ public class BossBarManager {
     }
     
     public void showBossBar(Player player, CaptureSession session) {
+        // Проверяем, включен ли боссбар в шаблоне
+        if (!session.getTemplate().isBossBarEnabled()) {
+            return;
+        }
+        
         String sessionId = session.getSessionId();
         BossBar bossBar = activeBossBars.get(sessionId);
         
@@ -50,6 +55,11 @@ public class BossBarManager {
     }
     
     public void updateBossBar(CaptureSession session) {
+        // Проверяем, включен ли боссбар в шаблоне
+        if (!session.getTemplate().isBossBarEnabled()) {
+            return;
+        }
+        
         String sessionId = session.getSessionId();
         BossBar bossBar = activeBossBars.get(sessionId);
         
