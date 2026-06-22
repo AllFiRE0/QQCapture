@@ -19,6 +19,13 @@ public class LanguageManager {
     public LanguageManager(QQCapture plugin) {
         this.plugin = plugin;
         this.messages = new HashMap<>();
+        
+        // Создаем папку languages если её нет
+        File langDir = new File(plugin.getDataFolder(), "languages");
+        if (!langDir.exists()) {
+            langDir.mkdirs();
+        }
+        
         loadLanguages();
     }
     
@@ -48,20 +55,27 @@ public class LanguageManager {
                 // Load from resources
                 InputStream inputStream = plugin.getResource("languages/" + languageCode + ".yml");
                 if (inputStream == null) {
-                    plugin.getLogger().warning("Language file not found: " + languageCode);
+                    plugin.getLogger().warning("Language file not found in resources: " + languageCode);
                     return;
                 }
                 langConfig = YamlConfiguration.loadConfiguration(
                     new InputStreamReader(inputStream, StandardCharsets.UTF_8)
                 );
+                
+                // Save to disk for editing
+                langConfig.save(langFile);
             }
             
             Map<String, String> langMessages = new HashMap<>();
             for (String key : langConfig.getKeys(false)) {
-                langMessages.put(key, langConfig.getString(key));
+                String value = langConfig.getString(key);
+                if (value != null) {
+                    langMessages.put(key, value);
+                }
             }
             
             messages.put(languageCode, langMessages);
+            plugin.getLogger().info("Loaded language: " + languageCode + " (" + langMessages.size() + " messages)");
             
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to load language: " + languageCode);
