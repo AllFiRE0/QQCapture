@@ -2,6 +2,7 @@ package com.qqcapture.managers;
 
 import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
+import com.qqcapture.models.Template;
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
