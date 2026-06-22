@@ -79,14 +79,21 @@ public class CaptureSession {
         captureTask = new BukkitRunnable() {
             @Override
             public void run() {
+                if (plugin.getConfigManager().isDebug()) {
+                    plugin.getLogger().info("Capture task tick: " + tickCounter + "/" + template.getTickCapture());
+                }
+            
                 if (stopped || complete) {
                     this.cancel();
                     return;
                 }
-                
+            
                 tickCounter++;
                 if (tickCounter >= template.getTickCapture()) {
                     tickCounter = 0;
+                    if (plugin.getConfigManager().isDebug()) {
+                        plugin.getLogger().info("Running processCaptureTick!");
+                    }
                     processCaptureTick();
                 }
             }
