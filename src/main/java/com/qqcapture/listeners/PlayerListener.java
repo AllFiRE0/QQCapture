@@ -71,6 +71,12 @@ public class PlayerListener implements Listener {
             
             if (nowInZone && !isInSession) {
                 onPlayerEnterZone(player, session);
+            } else if (nowInZone && isInSession) {
+                // ← ДОБАВЛЕНО: если в зоне и в сессии - проверить боссбар
+                Template template = session.getTemplate();
+                if (template.isBossBarEnabled()) {
+                    plugin.getBossBarManager().showBossBar(player, session);
+                }
             } else if (!nowInZone && isInSession) {
                 onPlayerLeaveZone(player, session);
             }
