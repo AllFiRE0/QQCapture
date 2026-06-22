@@ -1,11 +1,10 @@
 package com.qqcapture.models;
 
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.Bukkit;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Template {
     private final String name;
@@ -53,111 +52,37 @@ public class Template {
     private final boolean tickCommand;
     private final List<String> commands;
     
-    public Template(String name, ConfigurationSection section) {
-        this.name = name;
-        
-        // BossBar section
-        ConfigurationSection bossBarSection = section.getConfigurationSection("bossbar");
-        if (bossBarSection != null) {
-            this.bossBarColor = bossBarSection.getString("color", "GREEN");
-            this.bossBarUpdateTicks = bossBarSection.getInt("обновлять-боссбар-каждые-N-тиков", 20);
-            this.startText = bossBarSection.getString("start-text", "<gradient:#00FF00:#55FF55>Ивент начался!</gradient>");
-            this.progressText = bossBarSection.getString("progress-text", "<gradient:#FF0000:#FFAA00>Прогресс: %current%/%max%</gradient>");
-            this.endText = bossBarSection.getString("end-text", "<gradient:#FF5555:#FF0000>Ивент завершился!</gradient>");
-            this.segments = bossBarSection.getInt("segments", 12);
-            this.updateTicks = bossBarSection.getInt("update-ticks", 5);
-            this.startDelay = bossBarSection.getInt("start-delay", 3);
-            this.endDelay = bossBarSection.getInt("end-delay", 3);
-            this.timerFormat = bossBarSection.getString("timer-format", "mm:ss");
-            this.sendOnRejoin = bossBarSection.getBoolean("отправлять-боссбар-когда-игрок-перезаходит-на-сервер", true);
-            this.bossBarText = bossBarSection.getString("текст-боссбара", "Ивент: %current%/%max% (Участников: %players% Групп: %groups%)");
-        } else {
-            // Default values
-            this.bossBarColor = "GREEN";
-            this.bossBarUpdateTicks = 20;
-            this.startText = "<gradient:#00FF00:#55FF55>Ивент начался!</gradient>";
-            this.progressText = "<gradient:#FF0000:#FFAA00>Прогресс: %current%/%max%</gradient>";
-            this.endText = "<gradient:#FF5555:#FF0000>Ивент завершился!</gradient>";
-            this.segments = 12;
-            this.updateTicks = 5;
-            this.startDelay = 3;
-            this.endDelay = 3;
-            this.timerFormat = "mm:ss";
-            this.sendOnRejoin = true;
-            this.bossBarText = "Ивент: %current%/%max% (Участников: %players% Групп: %groups%)";
-        }
-        
-        // Conditions
-        this.condition = section.getString("condition", "");
-        this.allPlayersCondition = section.getString("all-players-condition", "");
-        
-        // Rules
-        this.rules = parseRules(section);
-        
-        // Permission
-        this.permission = section.getString("permission", "");
-        
-        // Player limits
-        this.minPlayers = section.getInt("min-players", 2);
-        this.maxPlayers = section.getInt("max-players", 30);
-        
-        // Capture settings
-        this.needAmount = section.getInt("need-amount", 100000);
-        this.tickCapture = section.getInt("tick-capture", 120);
-        this.multiplier = section.getDouble("multiplier", 0.00001);
-        this.teamMultiplierType = section.getString("type-team-multiplier", "индивидуально");
-        this.teamMultiplier = section.getDouble("team-multiplier", 0.0);
-        
-        // Region
-        this.pos1 = parseLocation(section.getString("pos1", "0,0,0"));
-        this.pos2 = parseLocation(section.getString("pos2", "0,-1,0"));
-        this.regionName = section.getString("region-name", "");
-        this.regionFlags = section.getString("region-flags", "");
-        
-        // Commands
-        this.tickCommand = section.getBoolean("tick-command", false);
-        this.commands = section.getStringList("commands");
-        if (this.commands == null) {
-            this.commands = new ArrayList<>();
-        }
-    }
-    
-    private Location parseLocation(String str) {
-        try {
-            String[] parts = str.split(",");
-            if (parts.length == 3) {
-                double x = Double.parseDouble(parts[0].trim());
-                double y = Double.parseDouble(parts[1].trim());
-                double z = Double.parseDouble(parts[2].trim());
-                return new Location(null, x, y, z);
-            }
-        } catch (Exception e) {
-            // Return default location
-        }
-        return new Location(null, 0, -1, 0);
-    }
-    
-    private Map<String, Map<String, String>> parseRules(ConfigurationSection section) {
-        Map<String, Map<String, String>> rules = new java.util.HashMap<>();
-        ConfigurationSection rulesSection = section.getConfigurationSection("rules");
-        
-        if (rulesSection != null) {
-            for (String key : rulesSection.getKeys(false)) {
-                Map<String, String> rule = new java.util.HashMap<>();
-                String value = rulesSection.getString(key);
-                
-                if (value != null && value.contains(":")) {
-                    String[] parts = value.split(":", 2);
-                    if (parts.length == 2) {
-                        rule.put("type", parts[0].trim());
-                        rule.put("value", parts[1].trim());
-                    }
-                }
-                rules.put(key, rule);
-            }
-        }
-        
-        return rules;
+    private Template(Builder builder) {
+        this.name = builder.name;
+        this.bossBarColor = builder.bossBarColor;
+        this.bossBarUpdateTicks = builder.bossBarUpdateTicks;
+        this.startText = builder.startText;
+        this.progressText = builder.progressText;
+        this.endText = builder.endText;
+        this.segments = builder.segments;
+        this.updateTicks = builder.updateTicks;
+        this.startDelay = builder.startDelay;
+        this.endDelay = builder.endDelay;
+        this.timerFormat = builder.timerFormat;
+        this.sendOnRejoin = builder.sendOnRejoin;
+        this.bossBarText = builder.bossBarText;
+        this.condition = builder.condition;
+        this.allPlayersCondition = builder.allPlayersCondition;
+        this.rules = builder.rules;
+        this.permission = builder.permission;
+        this.minPlayers = builder.minPlayers;
+        this.maxPlayers = builder.maxPlayers;
+        this.needAmount = builder.needAmount;
+        this.tickCapture = builder.tickCapture;
+        this.multiplier = builder.multiplier;
+        this.teamMultiplierType = builder.teamMultiplierType;
+        this.teamMultiplier = builder.teamMultiplier;
+        this.pos1 = builder.pos1;
+        this.pos2 = builder.pos2;
+        this.regionName = builder.regionName;
+        this.regionFlags = builder.regionFlags;
+        this.tickCommand = builder.tickCommand;
+        this.commands = builder.commands;
     }
     
     // Getters
@@ -191,4 +116,255 @@ public class Template {
     public String getRegionFlags() { return regionFlags; }
     public boolean isTickCommand() { return tickCommand; }
     public List<String> getCommands() { return commands; }
+    
+    // Helper methods
+    public boolean hasValidPositions() {
+        return pos1 != null && pos2 != null && 
+               pos1.getWorld() != null && pos2.getWorld() != null;
+    }
+    
+    public boolean isRegionEnabled() {
+        return regionName != null && !regionName.isEmpty();
+    }
+    
+    public boolean hasCommands() {
+        return commands != null && !commands.isEmpty();
+    }
+    
+    public boolean hasRules() {
+        return rules != null && !rules.isEmpty();
+    }
+    
+    public boolean hasCondition() {
+        return condition != null && !condition.isEmpty();
+    }
+    
+    public boolean hasAllPlayersCondition() {
+        return allPlayersCondition != null && !allPlayersCondition.isEmpty();
+    }
+    
+    public boolean hasPermission() {
+        return permission != null && !permission.isEmpty();
+    }
+    
+    public boolean hasTeamMultiplier() {
+        return teamMultiplier > 0;
+    }
+    
+    public boolean hasMultiplier() {
+        return multiplier > 0;
+    }
+    
+    @Override
+    public String toString() {
+        return "Template{" +
+               "name='" + name + '\'' +
+               ", needAmount=" + needAmount +
+               ", minPlayers=" + minPlayers +
+               ", maxPlayers=" + maxPlayers +
+               ", regionName='" + regionName + '\'' +
+               ", commands=" + (commands != null ? commands.size() : 0) +
+               '}';
+    }
+    
+    // Builder Pattern
+    public static class Builder {
+        private final String name;
+        private String bossBarColor = "GREEN";
+        private int bossBarUpdateTicks = 20;
+        private String startText = "<gradient:#00FF00:#55FF55>Ивент начался!</gradient>";
+        private String progressText = "<gradient:#FF0000:#FFAA00>Прогресс: %current%/%max%</gradient>";
+        private String endText = "<gradient:#FF5555:#FF0000>Ивент завершился!</gradient>";
+        private int segments = 12;
+        private int updateTicks = 5;
+        private int startDelay = 3;
+        private int endDelay = 3;
+        private String timerFormat = "mm:ss";
+        private boolean sendOnRejoin = true;
+        private String bossBarText = "Ивент: %current%/%max% (Участников: %players% Групп: %groups%)";
+        private String condition = "";
+        private String allPlayersCondition = "";
+        private Map<String, Map<String, String>> rules = new LinkedHashMap<>();
+        private String permission = "";
+        private int minPlayers = 2;
+        private int maxPlayers = 30;
+        private int needAmount = 100000;
+        private int tickCapture = 120;
+        private double multiplier = 0.00001;
+        private String teamMultiplierType = "индивидуально";
+        private double teamMultiplier = 0.0;
+        private Location pos1 = new Location(null, 0, 0, 0);
+        private Location pos2 = new Location(null, 0, -1, 0);
+        private String regionName = "";
+        private String regionFlags = "";
+        private boolean tickCommand = false;
+        private List<String> commands = new ArrayList<>();
+        
+        public Builder(String name) {
+            this.name = name;
+        }
+        
+        public Builder bossBarColor(String bossBarColor) {
+            this.bossBarColor = bossBarColor;
+            return this;
+        }
+        
+        public Builder bossBarUpdateTicks(int bossBarUpdateTicks) {
+            this.bossBarUpdateTicks = bossBarUpdateTicks;
+            return this;
+        }
+        
+        public Builder startText(String startText) {
+            this.startText = startText;
+            return this;
+        }
+        
+        public Builder progressText(String progressText) {
+            this.progressText = progressText;
+            return this;
+        }
+        
+        public Builder endText(String endText) {
+            this.endText = endText;
+            return this;
+        }
+        
+        public Builder segments(int segments) {
+            this.segments = segments;
+            return this;
+        }
+        
+        public Builder updateTicks(int updateTicks) {
+            this.updateTicks = updateTicks;
+            return this;
+        }
+        
+        public Builder startDelay(int startDelay) {
+            this.startDelay = startDelay;
+            return this;
+        }
+        
+        public Builder endDelay(int endDelay) {
+            this.endDelay = endDelay;
+            return this;
+        }
+        
+        public Builder timerFormat(String timerFormat) {
+            this.timerFormat = timerFormat;
+            return this;
+        }
+        
+        public Builder sendOnRejoin(boolean sendOnRejoin) {
+            this.sendOnRejoin = sendOnRejoin;
+            return this;
+        }
+        
+        public Builder bossBarText(String bossBarText) {
+            this.bossBarText = bossBarText;
+            return this;
+        }
+        
+        public Builder condition(String condition) {
+            this.condition = condition;
+            return this;
+        }
+        
+        public Builder allPlayersCondition(String allPlayersCondition) {
+            this.allPlayersCondition = allPlayersCondition;
+            return this;
+        }
+        
+        public Builder rules(Map<String, Map<String, String>> rules) {
+            this.rules = rules;
+            return this;
+        }
+        
+        public Builder permission(String permission) {
+            this.permission = permission;
+            return this;
+        }
+        
+        public Builder minPlayers(int minPlayers) {
+            this.minPlayers = minPlayers;
+            return this;
+        }
+        
+        public Builder maxPlayers(int maxPlayers) {
+            this.maxPlayers = maxPlayers;
+            return this;
+        }
+        
+        public Builder needAmount(int needAmount) {
+            this.needAmount = needAmount;
+            return this;
+        }
+        
+        public Builder tickCapture(int tickCapture) {
+            this.tickCapture = tickCapture;
+            return this;
+        }
+        
+        public Builder multiplier(double multiplier) {
+            this.multiplier = multiplier;
+            return this;
+        }
+        
+        public Builder teamMultiplierType(String teamMultiplierType) {
+            this.teamMultiplierType = teamMultiplierType;
+            return this;
+        }
+        
+        public Builder teamMultiplier(double teamMultiplier) {
+            this.teamMultiplier = teamMultiplier;
+            return this;
+        }
+        
+        public Builder pos1(Location pos1) {
+            this.pos1 = pos1;
+            return this;
+        }
+        
+        public Builder pos2(Location pos2) {
+            this.pos2 = pos2;
+            return this;
+        }
+        
+        public Builder regionName(String regionName) {
+            this.regionName = regionName;
+            return this;
+        }
+        
+        public Builder regionFlags(String regionFlags) {
+            this.regionFlags = regionFlags;
+            return this;
+        }
+        
+        public Builder tickCommand(boolean tickCommand) {
+            this.tickCommand = tickCommand;
+            return this;
+        }
+        
+        public Builder commands(List<String> commands) {
+            this.commands = commands;
+            return this;
+        }
+        
+        public Template build() {
+            // Ensure world is set for locations if possible
+            if (pos1 != null && pos1.getWorld() == null) {
+                World defaultWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+                if (defaultWorld != null) {
+                    pos1.setWorld(defaultWorld);
+                }
+            }
+            if (pos2 != null && pos2.getWorld() == null) {
+                World defaultWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+                if (defaultWorld != null) {
+                    pos2.setWorld(defaultWorld);
+                }
+            }
+            
+            return new Template(this);
+        }
+    }
 }
