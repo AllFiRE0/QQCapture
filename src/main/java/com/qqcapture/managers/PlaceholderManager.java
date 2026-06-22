@@ -167,10 +167,10 @@ public class PlaceholderManager {
                     case "participants":
                         return parseParticipantsPlaceholderFromSnapshot(snapshot, property, fallback);
                     default:
-                        return fallback.isEmpty() ? "0" : fallback;
+                        return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
                 }
             }
-            return fallback.isEmpty() ? "0" : fallback;
+            return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
         }
         
         switch (property) {
@@ -188,7 +188,7 @@ public class PlaceholderManager {
             case "participants":
                 return parseParticipantsPlaceholder(session, property, fallback);
             default:
-                return fallback.isEmpty() ? "0" : fallback;
+                return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
         }
     }
     
@@ -206,7 +206,7 @@ public class PlaceholderManager {
         
         String[] parts = property.split("_");
         if (parts.length < 3) {
-            return fallback.isEmpty() ? "0" : fallback;
+            return fallback.isEmpty() ? "0" : ColorUtils.stripColor(fallback);
         }
         
         try {
@@ -247,7 +247,7 @@ public class PlaceholderManager {
         }
         
         // ===== ВОЗВРАЩАЕМ FALLBACK =====
-        return fallback.isEmpty() ? "0" : fallback;
+        return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
     }
     
     private String parseParticipantsPlaceholder(CaptureSession session, String property, String fallback) {
