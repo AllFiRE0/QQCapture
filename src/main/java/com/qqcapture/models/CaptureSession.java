@@ -251,6 +251,12 @@ public class CaptureSession {
             // ИСПРАВЛЕНО №2:
             QQCapture.getInstance().getCommandManager().executeTickCommands(this, activePlayers);
         }
+        // ← ДОБАВИТЬ ЭТОТ БЛОК:
+        if (currentPoints >= targetPoints) {
+            plugin.getLogger().info("COMPLETED! Current: " + currentPoints + ", Target: " + targetPoints);
+            complete = true;
+            onComplete(activePlayers);
+        }
     }
     
     private List<Player> getPlayersInZone() {
