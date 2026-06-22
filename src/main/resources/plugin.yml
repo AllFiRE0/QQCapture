@@ -10,16 +10,52 @@ softdepend: [Vault, PlaceholderAPI]
 commands:
   qqcapture:
     description: Main command for QQCapture plugin
-    usage: /<command> <template> <points> [-s]
+    usage: /<command> <subcommand> [args]
     permission: qqcapture.admin
     aliases: [qqc]
 
 permissions:
+  # Основные права
   qqcapture.admin:
     description: Allows use of all admin commands
     default: op
+    children:
+      qqcapture.admin.reload: true
+      qqcapture.admin.start: true
+      qqcapture.admin.stop: true
+      qqcapture.admin.list: true
+      qqcapture.admin.info: true
+  
+  # Права на отдельные подкоманды
+  qqcapture.admin.reload:
+    description: Reload configuration and languages
+    default: op
+  
+  qqcapture.admin.start:
+    description: Start a capture event
+    default: op
+  
+  qqcapture.admin.stop:
+    description: Stop a running session
+    default: op
+  
+  qqcapture.admin.list:
+    description: List active sessions
+    default: op
+  
+  qqcapture.admin.info:
+    description: View template information
+    default: op
+  
+  # Право на участие в ивентах (проверяется в шаблонах)
+  qqcapture.participate:
+    description: Allows participation in capture events
+    default: true
+  
+  # Wildcard право (все права)
   qqcapture.*:
     description: All permissions
     default: op
     children:
       qqcapture.admin: true
+      qqcapture.participate: true
