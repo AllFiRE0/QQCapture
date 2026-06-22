@@ -254,6 +254,16 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
     }
     
     private String parseTopPlaceholder(String templateName, CaptureSession session, String property, String fallback) {
+        if (plugin.getConfigManager().isDebug()) {
+            if (session != null) {
+                plugin.getLogger().info("QQCapturePlaceholders - session players count: " + session.getPlayers().size());
+                for (Map.Entry<UUID, PlayerData> entry : session.getPlayers().entrySet()) {
+                    plugin.getLogger().info("  Player: " + entry.getValue().getPlayerName() + " - " + entry.getValue().getContribution());
+                }
+            } else {
+                plugin.getLogger().info("QQCapturePlaceholders - session is null");
+            }
+        }
         String withoutTop = property.substring("top_".length());
         String[] parts = withoutTop.split("_", 2);
         
