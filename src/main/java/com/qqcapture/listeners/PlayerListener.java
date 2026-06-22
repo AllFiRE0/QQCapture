@@ -70,9 +70,11 @@ public class PlayerListener implements Listener {
                 plugin.getLogger().info("Player " + player.getName() + " - wasInZone: " + wasInZone + ", nowInZone: " + nowInZone);
             }
             
-            if (!wasInZone && nowInZone) {
+            if (nowInZone && !isInSession) {
                 onPlayerEnterZone(player, session);
-            } else if (wasInZone && !nowInZone) {
+            } 
+            // ЕСЛИ НЕ В ЗОНЕ, НО В СЕССИИ -> УБРАТЬ
+            else if (!nowInZone && isInSession) {
                 onPlayerLeaveZone(player, session);
             }
         }
