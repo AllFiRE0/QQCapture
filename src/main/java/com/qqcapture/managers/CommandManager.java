@@ -29,8 +29,6 @@ public class CommandManager {
         this.soundPattern = Pattern.compile("^sound! (.+?) (\\d+\\.?\\d*) (\\d+\\.?\\d*)$");
     }
     
-    // ===== НОВЫЕ МЕТОДЫ ДЛЯ КОМАНД =====
-    
     public void executeStartCommands(CaptureSession session, List<Player> players) {
         List<String> commands = session.getTemplate().getStartCommands();
         if (commands == null || commands.isEmpty()) return;
@@ -58,8 +56,6 @@ public class CommandManager {
         processCommandsWithDelay(session, players, commands, 0);
     }
     
-    // ===== ОБРАБОТКА КОМАНД С ЗАДЕРЖКОЙ =====
-    
     private void processCommandsWithDelay(CaptureSession session, List<Player> players, List<String> commands, int index) {
         if (index >= commands.size()) {
             if (plugin.getConfigManager().isDebug()) {
@@ -73,13 +69,11 @@ public class CommandManager {
             plugin.getLogger().info("Processing command [" + index + "/" + commands.size() + "]: " + command);
         }
         
-        // Обработка delay: (новый формат как в ResponseHandler)
         if (command.startsWith("delay:")) {
             handleDelayAction(session, players, command, commands, index);
             return;
         }
         
-        // Старый формат delay!
         Matcher delayMatcher = delayPattern.matcher(command);
         if (delayMatcher.matches()) {
             int delay = Integer.parseInt(delayMatcher.group(1));
@@ -89,9 +83,7 @@ public class CommandManager {
             return;
         }
         
-        // Обычная команда
         executeCommand(session, players, command);
-        
         Bukkit.getScheduler().runTask(plugin, 
             () -> processCommandsWithDelay(session, players, commands, index + 1));
     }
@@ -119,14 +111,11 @@ public class CommandManager {
         }
     }
     
-    // ===== ВЫПОЛНЕНИЕ ОТДЕЛЬНОЙ КОМАНДЫ =====
-    
     private void executeCommand(CaptureSession session, List<Player> players, String command) {
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("Executing command: " + command);
         }
         
-        // 1. random: - случайный шанс
         Matcher randomMatcher = randomPattern.matcher(command);
         if (randomMatcher.matches()) {
             int chance = Integer.parseInt(randomMatcher.group(1));
@@ -142,17 +131,13 @@ public class CommandManager {
             }
         }
         
-        // 2. check: - проверка условия (поддержка нескольких)
         if (command.startsWith("check:")) {
             handleCheckCommand(session, players, command);
             return;
         }
         
-        // 3. Обычная команда с префиксом
         executeSingleCommand(session, players, command, null);
     }
-    
-    // ===== ОБРАБОТКА CHECK: =====
     
     private void handleCheckCommand(CaptureSession session, List<Player> players, String command) {
         List<String> conditions = new ArrayList<>();
@@ -204,25 +189,25 @@ public class CommandManager {
         }
     }
     
-    // ===== ПРОВЕРКА УСЛОВИЯ =====
-    
     private boolean checkCondition(Player player, String condition) {
         return plugin.getConditionManager().evaluateCondition(player, condition);
     }
     
-    // ===== ВЫПОЛНЕНИЕ ОДНОЙ КОМАНДЫ С ПРЕФИКСОМ =====
-    
     private void executeSingleCommand(CaptureSession session, List<Player> players, String command, Player targetPlayer) {
-        String[] parts = command.split("! ", 2);
-        if (parts.length < 2) {
+        // Ищем "! " или просто "!"
+        int exclamationIndex = command.indexOf("! ");
+        if (exclamationIndex == -1) {
+            exclamationIndex = command.indexOf("!");
+        }
+        if (exclamationIndex == -1) {
             if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().warning("Invalid command format (missing '! '): " + command);
+                plugin.getLogger().warning("Invalid command format (missing '!'): " + command);
             }
             return;
         }
         
-        String prefix = parts[0];
-        String content = parts[1];
+        String prefix = command.substring(0, exclamationIndex).trim();
+        String content = command.substring(exclamationIndex + 1).trim();
         
         // Заменяем плейсхолдеры
         content = plugin.getPlaceholderManager().parsePlaceholders(targetPlayer, content);
@@ -231,13 +216,21 @@ public class CommandManager {
             plugin.getLogger().info("Executing - prefix: " + prefix + ", content: " + content);
         }
         
+        // Проверка префиксов с параметрами
+        if (prefix.startsWith("title:")) {
+            handleTitleCommand(targetPlayer != null ? targetPlayer : players.get(0), prefix.substring(6) + "!" + content);
+            return;
+        }
+        if (prefix.startsWith("actionbar:")) {
+            handleActionbarCommand(targetPlayer != null ? targetPlayer : players.get(0), prefix.substring(10) + "!" + content);
+            return;
+        }
+        
         switch (prefix) {
-            // ===== КОНСОЛЬНЫЕ КОМАНДЫ =====
             case "asConsole":
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), content);
                 break;
                 
-            // ===== ИГРОК КАК ИСПОЛНИТЕЛЬ =====
             case "asPlayer":
                 if (targetPlayer != null) {
                     targetPlayer.performCommand(content);
@@ -248,7 +241,6 @@ public class CommandManager {
                 }
                 break;
                 
-            // ===== СООБЩЕНИЯ =====
             case "message":
                 if (targetPlayer != null) {
                     targetPlayer.sendMessage(ColorUtils.colorize(content));
@@ -263,7 +255,6 @@ public class CommandManager {
                 Bukkit.broadcastMessage(ColorUtils.colorize(content));
                 break;
                 
-            // ===== ЗВУКИ =====
             case "sound":
                 executeSound(targetPlayer != null ? targetPlayer : players.get(0), content);
                 break;
@@ -272,7 +263,6 @@ public class CommandManager {
                 executeSoundAll(content);
                 break;
                 
-            // ===== ACTIONBAR =====
             case "actionbar":
                 handleActionbarCommand(targetPlayer != null ? targetPlayer : players.get(0), content);
                 break;
@@ -281,7 +271,6 @@ public class CommandManager {
                 handleActionbarAllCommand(content);
                 break;
                 
-            // ===== TITLE =====
             case "title":
                 handleTitleCommand(targetPlayer != null ? targetPlayer : players.get(0), content);
                 break;
@@ -291,13 +280,12 @@ public class CommandManager {
         }
     }
     
-    // ===== ACTIONBAR ОБРАБОТКА =====
+    // ===== ACTIONBAR =====
     
     private void handleActionbarCommand(Player player, String content) {
-        int duration = 60; // по умолчанию 3 секунды (60 тиков)
+        int duration = 60;
         String message = content;
         
-        // Формат actionbar:40! текст
         if (content.contains(":")) {
             String[] parts = content.split(":", 2);
             try {
@@ -324,7 +312,7 @@ public class CommandManager {
         sendActionBarAll(ColorUtils.colorize(message), duration);
     }
     
-    // ===== TITLE ОБРАБОТКА =====
+    // ===== TITLE =====
     
     private void handleTitleCommand(Player player, String content) {
         int fadeIn = 20;
@@ -333,7 +321,6 @@ public class CommandManager {
         String title = "";
         String subtitle = "";
         
-        // Формат title:40:60:80! Заголовок\nПодзаголовок
         if (content.matches("\\d+:\\d+:\\d+! .+")) {
             String[] parts3 = content.split("! ", 2);
             String[] times = parts3[0].split(":");
@@ -349,14 +336,13 @@ public class CommandManager {
             } catch (NumberFormatException ignored) {}
         }
         
-        // Обычный формат title! Заголовок\nПодзаголовок
         String[] titleParts = content.split("\n", 2);
         title = titleParts[0];
         subtitle = titleParts.length > 1 ? titleParts[1] : "";
         sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
     }
     
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
+    // ===== ВСПОМОГАТЕЛЬНЫЕ =====
     
     private void executeSound(Player player, String soundString) {
         try {
@@ -395,7 +381,6 @@ public class CommandManager {
     private void sendActionBar(Player player, String message, int ticks) {
         player.sendActionBar(message);
         
-        // Если ticks > 20, обновляем каждые 20 тиков
         int refreshTicks = 20;
         if (ticks > refreshTicks) {
             int repeats = ticks / refreshTicks;
