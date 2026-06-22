@@ -8,7 +8,6 @@ import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.Flag;
 import com.sk89q.worldguard.protection.flags.StateFlag;
-// ← УДАЛИ ЭТУ СТРОКУ:
 // import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
@@ -166,7 +165,6 @@ public class RegionManager {
             }
             
             RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-            // ИСПОЛЬЗУЙ ПОЛНОЕ ИМЯ ВМЕСТО ИМПОРТА:
             com.sk89q.worldguard.protection.managers.RegionManager manager = container.get(com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world));
             
             if (manager == null) {
