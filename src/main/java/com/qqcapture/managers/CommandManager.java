@@ -5,6 +5,11 @@ import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.PlayerData;
 import com.qqcapture.models.Template;
 import com.qqcapture.utils.ColorUtils;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
+import net.kyori.adventure.util.Ticks;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -116,7 +121,6 @@ public class CommandManager {
             plugin.getLogger().info("Executing command: " + command);
         }
         
-        // random:
         Matcher randomMatcher = randomPattern.matcher(command);
         if (randomMatcher.matches()) {
             int chance = Integer.parseInt(randomMatcher.group(1));
@@ -132,13 +136,11 @@ public class CommandManager {
             }
         }
         
-        // Если команда начинается с check: - обрабатываем отдельно
         if (command.startsWith("check:")) {
             handleCheckCommand(session, players, command);
             return;
         }
         
-        // Обычная команда
         executeSingleCommand(session, players, command, null);
     }
     
@@ -147,7 +149,6 @@ public class CommandManager {
         String remaining = command;
         String actualCommand = "";
         
-        // Парсим все check: условия
         while (remaining.startsWith("check:")) {
             int nextCheck = remaining.indexOf(" check:", 1);
             int firstExclamation = remaining.indexOf("! ");
@@ -188,7 +189,6 @@ public class CommandManager {
                 if (plugin.getConfigManager().isDebug()) {
                     plugin.getLogger().info("All conditions met for player " + player.getName());
                 }
-                // Выполняем команду (она может содержать другие !)
                 executeSingleCommand(session, players, actualCommand, player);
             }
         }
@@ -198,8 +198,33 @@ public class CommandManager {
         return plugin.getConditionManager().evaluateCondition(player, condition);
     }
     
+    // ===== ЦВЕТА И ФОРМАТИРОВАНИЕ =====
+    
+    private Component parseMessage(String message) {
+        // Конвертация CMI градиентов {#FF5555>}текст{<#00FF00}
+        message = message.replaceAll("\\{#([A-Fa-f0-9]{6})>\\}(.*?)\\{#([A-Fa-f0-9]{6})<\\}",
+                                       "<gradient:#$1:#$3>$2</gradient>");
+        // Если есть MiniMessage теги
+        if (message.contains("<gradient:") || message.contains("<#") || message.contains("<color:")) {
+            try {
+                return MiniMessage.miniMessage().deserialize(message);
+            } catch (Exception ignored) {}
+        }
+        // Legacy (ampersand) формат
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(message);
+    }
+    
+    private Component formatForDisplay(String text, Player player) {
+        text = plugin.getPlaceholderManager().parsePlaceholders(player, text);
+        return parseMessage(text);
+    }
+    
+    private String formatForCommand(String text, Player player) {
+        text = LegacyComponentSerializer.legacyAmpersand().serialize(parseMessage(text));
+        return plugin.getPlaceholderManager().parsePlaceholders(player, text);
+    }
+    
     private void executeSingleCommand(CaptureSession session, List<Player> players, String command, Player targetPlayer) {
-        // Ищем "! " или просто "!"
         int exclamationIndex = command.indexOf("! ");
         if (exclamationIndex == -1) {
             exclamationIndex = command.indexOf("!");
@@ -213,9 +238,6 @@ public class CommandManager {
         
         String prefix = command.substring(0, exclamationIndex).trim();
         String content = command.substring(exclamationIndex + 1).trim();
-        
-        // Заменяем плейсхолдеры
-        content = plugin.getPlaceholderManager().parsePlaceholders(targetPlayer, content);
         
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("Executing - prefix: " + prefix + ", content: " + content);
@@ -233,10 +255,12 @@ public class CommandManager {
         
         switch (prefix) {
             case "asConsole":
+                content = formatForCommand(content, targetPlayer);
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), content);
                 break;
                 
             case "asPlayer":
+                content = formatForCommand(content, targetPlayer);
                 if (targetPlayer != null) {
                     targetPlayer.performCommand(content);
                 } else {
@@ -247,17 +271,11 @@ public class CommandManager {
                 break;
                 
             case "message":
-                if (targetPlayer != null) {
-                    targetPlayer.sendMessage(ColorUtils.colorize(content));
-                } else {
-                    for (Player player : players) {
-                        player.sendMessage(ColorUtils.colorize(content));
-                    }
-                }
+                handleMessage(targetPlayer != null ? targetPlayer : players.get(0), content);
                 break;
                 
             case "gMessage":
-                Bukkit.broadcastMessage(ColorUtils.colorize(content));
+                handleGlobalMessage(targetPlayer != null ? targetPlayer : players.get(0), content);
                 break;
                 
             case "sound":
@@ -285,7 +303,7 @@ public class CommandManager {
         }
     }
     
-    // ===== ACTIONBAR С ПАРАМЕТРАМИ =====
+    // ===== ACTIONBAR =====
     
     private void handleActionbarCommandWithParams(Player player, String content, String params) {
         int duration = 60;
@@ -307,7 +325,7 @@ public class CommandManager {
             } catch (NumberFormatException ignored) {}
         }
         
-        sendActionBar(player, ColorUtils.colorize(message), duration);
+        sendActionBar(player, message, duration);
     }
     
     private void handleActionbarAllCommand(String content) {
@@ -322,10 +340,10 @@ public class CommandManager {
             } catch (NumberFormatException ignored) {}
         }
         
-        sendActionBarAll(ColorUtils.colorize(message), duration);
+        sendActionBarAll(message, duration);
     }
     
-    // ===== TITLE С ПАРАМЕТРАМИ =====
+    // ===== TITLE =====
     
     private void handleTitleCommandWithParams(Player player, String content, String params) {
         String[] times = params.split(":");
@@ -334,48 +352,36 @@ public class CommandManager {
                 int fadeIn = Integer.parseInt(times[0]);
                 int stay = Integer.parseInt(times[1]);
                 int fadeOut = Integer.parseInt(times[2]);
-                String[] titleParts = content.split("\n", 2);
-                sendTitle(player, 
-                    titleParts[0],
-                    titleParts.length > 1 ? titleParts[1] : "",
-                    fadeIn, stay, fadeOut);
+                sendTitle(player, content, fadeIn, stay, fadeOut);
                 return;
             } catch (NumberFormatException ignored) {}
         }
-        
-        // Fallback
-        String[] titleParts = content.split("\n", 2);
-        sendTitle(player, titleParts[0], titleParts.length > 1 ? titleParts[1] : "", 20, 40, 20);
+        sendTitle(player, content, 20, 40, 20);
     }
     
-    // ===== TITLE =====
-    
     private void handleTitleCommand(Player player, String content) {
-        int fadeIn = 20;
-        int stay = 40;
-        int fadeOut = 20;
-        String title = "";
-        String subtitle = "";
-        
         if (content.matches("\\d+:\\d+:\\d+! .+")) {
             String[] parts3 = content.split("! ", 2);
             String[] times = parts3[0].split(":");
             try {
-                fadeIn = Integer.parseInt(times[0]);
-                stay = Integer.parseInt(times[1]);
-                fadeOut = Integer.parseInt(times[2]);
-                String[] titleContent = parts3[1].split("\n", 2);
-                title = titleContent[0];
-                subtitle = titleContent.length > 1 ? titleContent[1] : "";
-                sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
+                int fadeIn = Integer.parseInt(times[0]);
+                int stay = Integer.parseInt(times[1]);
+                int fadeOut = Integer.parseInt(times[2]);
+                sendTitle(player, parts3[1], fadeIn, stay, fadeOut);
                 return;
             } catch (NumberFormatException ignored) {}
         }
-        
-        String[] titleParts = content.split("\n", 2);
-        title = titleParts[0];
-        subtitle = titleParts.length > 1 ? titleParts[1] : "";
-        sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
+        sendTitle(player, content, 20, 40, 20);
+    }
+    
+    // ===== СООБЩЕНИЯ С ЦВЕТАМИ =====
+    
+    private void handleMessage(Player player, String message) {
+        player.sendMessage(formatForDisplay(message, player));
+    }
+    
+    private void handleGlobalMessage(Player player, String message) {
+        Bukkit.broadcast(formatForDisplay(message, player));
     }
     
     // ===== ВСПОМОГАТЕЛЬНЫЕ =====
@@ -415,7 +421,8 @@ public class CommandManager {
     }
     
     private void sendActionBar(Player player, String message, int ticks) {
-        player.sendActionBar(message);
+        Component component = formatForDisplay(message, player);
+        player.sendActionBar(component);
         
         int refreshTicks = 20;
         if (ticks > refreshTicks) {
@@ -423,15 +430,16 @@ public class CommandManager {
             for (int i = 1; i <= repeats; i++) {
                 final int index = i;
                 Bukkit.getScheduler().runTaskLater(plugin, 
-                    () -> player.sendActionBar(message), 
+                    () -> player.sendActionBar(component), 
                     index * refreshTicks);
             }
         }
     }
     
     private void sendActionBarAll(String message, int ticks) {
+        Component component = formatForDisplay(message, null);
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.sendActionBar(message);
+            player.sendActionBar(component);
         }
         
         int refreshTicks = 20;
@@ -442,7 +450,7 @@ public class CommandManager {
                 Bukkit.getScheduler().runTaskLater(plugin, 
                     () -> {
                         for (Player player : Bukkit.getOnlinePlayers()) {
-                            player.sendActionBar(message);
+                            player.sendActionBar(component);
                         }
                     }, 
                     index * refreshTicks);
@@ -450,7 +458,22 @@ public class CommandManager {
         }
     }
     
-    private void sendTitle(Player player, String title, String subtitle, int fadeIn, int stay, int fadeOut) {
-        player.sendTitle(ColorUtils.colorize(title), ColorUtils.colorize(subtitle), fadeIn, stay, fadeOut);
+    private void sendTitle(Player player, String titleText, int fadeIn, int stay, int fadeOut) {
+        String text = plugin.getPlaceholderManager().parsePlaceholders(player, titleText);
+        Component title;
+        Component subtitle = Component.empty();
+        if (text.contains("\\n")) {
+            String[] parts = text.split("\\\\n", 2);
+            title = parseMessage(parts[0]);
+            subtitle = parseMessage(parts[1]);
+        } else {
+            title = parseMessage(text);
+        }
+        Title.Times times = Title.Times.times(
+            Ticks.duration(fadeIn),
+            Ticks.duration(stay),
+            Ticks.duration(fadeOut)
+        );
+        player.showTitle(Title.title(title, subtitle, times));
     }
 }
