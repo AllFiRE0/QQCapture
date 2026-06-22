@@ -4,7 +4,7 @@ import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.WorldGuard;
-import com.sk89q.worldguard.bukkit.WGBukkit;
+// import com.sk89q.worldguard.bukkit.WGBukkit;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.Flag;
@@ -130,7 +130,7 @@ public class RegionManager {
                 StateFlag pvpFlag = com.sk89q.worldguard.protection.flags.Flags.PVP;
                 region.setFlag(pvpFlag, parseStateFlag(flagValue));
             } else if (flagName.equalsIgnoreCase("allow-spawning")) {
-                StateFlag spawningFlag = com.sk89q.worldguard.protection.flags.Flags.SPAWNING;
+                StateFlag spawningFlag = com.sk89q.worldguard.protection.flags.Flags.MOB_SPAWNING;
                 region.setFlag(spawningFlag, parseStateFlag(flagValue));
             } else if (flagName.equalsIgnoreCase("mob-damage")) {
                 StateFlag mobDamageFlag = com.sk89q.worldguard.protection.flags.Flags.MOB_DAMAGE;
