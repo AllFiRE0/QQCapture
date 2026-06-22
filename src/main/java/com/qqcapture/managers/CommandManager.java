@@ -19,6 +19,7 @@ public class CommandManager {
     private final Pattern delayPattern;
     private final Pattern randomPattern;
     private final Pattern soundPattern;
+    private final Random random = new Random();
     
     public CommandManager(QQCapture plugin) {
         this.plugin = plugin;
@@ -28,56 +29,36 @@ public class CommandManager {
         this.soundPattern = Pattern.compile("^sound! (.+?) (\\d+\\.?\\d*) (\\d+\\.?\\d*)$");
     }
     
-    // ← НОВЫЙ МЕТОД ДЛЯ START КОМАНД
+    // ===== НОВЫЕ МЕТОДЫ ДЛЯ КОМАНД =====
+    
     public void executeStartCommands(CaptureSession session, List<Player> players) {
         List<String> commands = session.getTemplate().getStartCommands();
-        if (commands == null || commands.isEmpty()) {
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("No start commands to execute");
-            }
-            return;
-        }
+        if (commands == null || commands.isEmpty()) return;
         if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Executing " + commands.size() + " start commands for " + players.size() + " players");
+            plugin.getLogger().info("Executing " + commands.size() + " start commands");
         }
         processCommandsWithDelay(session, players, commands, 0);
     }
     
-    // ← НОВЫЙ МЕТОД ДЛЯ TICK КОМАНД
     public void executeTickCommands(CaptureSession session, List<Player> players) {
         List<String> commands = session.getTemplate().getTickCommands();
-        if (commands == null || commands.isEmpty()) {
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("No tick commands to execute");
-            }
-            return;
-        }
+        if (commands == null || commands.isEmpty()) return;
         if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Executing " + commands.size() + " tick commands for " + players.size() + " players");
+            plugin.getLogger().info("Executing " + commands.size() + " tick commands");
         }
         processCommandsWithDelay(session, players, commands, 0);
     }
     
-    // ← НОВЫЙ МЕТОД ДЛЯ END КОМАНД
     public void executeEndCommands(CaptureSession session, List<Player> players) {
         List<String> commands = session.getTemplate().getEndCommands();
-        if (commands == null || commands.isEmpty()) {
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("No end commands to execute");
-            }
-            return;
-        }
+        if (commands == null || commands.isEmpty()) return;
         if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Executing " + commands.size() + " end commands for " + players.size() + " players");
+            plugin.getLogger().info("Executing " + commands.size() + " end commands");
         }
         processCommandsWithDelay(session, players, commands, 0);
     }
     
-    // СТАРЫЙ МЕТОД - оставляем для обратной совместимости, но он больше не используется
-    @Deprecated
-    public void executeCommands(CaptureSession session, List<Player> players) {
-        executeTickCommands(session, players);
-    }
+    // ===== ОБРАБОТКА КОМАНД С ЗАДЕРЖКОЙ =====
     
     private void processCommandsWithDelay(CaptureSession session, List<Player> players, List<String> commands, int index) {
         if (index >= commands.size()) {
@@ -92,34 +73,64 @@ public class CommandManager {
             plugin.getLogger().info("Processing command [" + index + "/" + commands.size() + "]: " + command);
         }
         
+        // Обработка delay: (новый формат как в ResponseHandler)
+        if (command.startsWith("delay:")) {
+            handleDelayAction(session, players, command, commands, index);
+            return;
+        }
+        
+        // Старый формат delay!
         Matcher delayMatcher = delayPattern.matcher(command);
         if (delayMatcher.matches()) {
             int delay = Integer.parseInt(delayMatcher.group(1));
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Delay " + delay + " seconds");
-            }
             Bukkit.getScheduler().runTaskLater(plugin, 
                 () -> processCommandsWithDelay(session, players, commands, index + 1), 
                 delay * 20L);
             return;
         }
         
+        // Обычная команда
         executeCommand(session, players, command);
         
         Bukkit.getScheduler().runTask(plugin, 
             () -> processCommandsWithDelay(session, players, commands, index + 1));
     }
     
+    private void handleDelayAction(CaptureSession session, List<Player> players, String command, List<String> commands, int index) {
+        try {
+            String[] parts = command.substring(6).split("!", 2);
+            String delayStr = parts[0].trim();
+            int delayTicks = Integer.parseInt(delayStr);
+            
+            if (parts.length > 1) {
+                String delayedAction = parts[1].trim();
+                Bukkit.getScheduler().runTaskLater(plugin, 
+                    () -> {
+                        executeCommand(session, players, delayedAction);
+                        processCommandsWithDelay(session, players, commands, index + 1);
+                    }, 
+                    delayTicks);
+            } else {
+                processCommandsWithDelay(session, players, commands, index + 1);
+            }
+        } catch (NumberFormatException e) {
+            plugin.getLogger().warning("Invalid delay format: " + command);
+            processCommandsWithDelay(session, players, commands, index + 1);
+        }
+    }
+    
+    // ===== ВЫПОЛНЕНИЕ ОТДЕЛЬНОЙ КОМАНДЫ =====
+    
     private void executeCommand(CaptureSession session, List<Player> players, String command) {
         if (plugin.getConfigManager().isDebug()) {
             plugin.getLogger().info("Executing command: " + command);
         }
         
-        // Check for random
+        // 1. random: - случайный шанс
         Matcher randomMatcher = randomPattern.matcher(command);
         if (randomMatcher.matches()) {
             int chance = Integer.parseInt(randomMatcher.group(1));
-            if (new Random().nextInt(100) >= chance) {
+            if (random.nextInt(100) >= chance) {
                 if (plugin.getConfigManager().isDebug()) {
                     plugin.getLogger().info("Random chance failed: " + chance + "%");
                 }
@@ -127,86 +138,79 @@ public class CommandManager {
             }
             command = randomMatcher.group(2);
             if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Random chance passed, executing: " + command);
+                plugin.getLogger().info("Random chance passed: " + chance + "%");
             }
         }
         
-        // Check for multiple conditions (check:... check:... ! command)
+        // 2. check: - проверка условия (поддержка нескольких)
         if (command.startsWith("check:")) {
-            List<String> conditions = new ArrayList<>();
-            String remaining = command;
-            String actualCommand = "";
-            
-            while (remaining.startsWith("check:")) {
-                int nextCheck = remaining.indexOf(" check:", 1);
-                int firstExclamation = remaining.indexOf("! ");
-                
-                if (nextCheck > 0 && nextCheck < firstExclamation) {
-                    String condition = remaining.substring(6, nextCheck).trim();
-                    conditions.add(condition);
-                    remaining = remaining.substring(nextCheck);
-                } else if (firstExclamation > 0) {
-                    String condition = remaining.substring(6, firstExclamation).trim();
-                    conditions.add(condition);
-                    actualCommand = remaining.substring(firstExclamation + 2).trim();
-                    break;
-                } else {
-                    plugin.getLogger().warning("Invalid check format: " + command);
-                    return;
-                }
-            }
-            
-            if (conditions.isEmpty() || actualCommand.isEmpty()) {
-                plugin.getLogger().warning("Empty conditions or command in check: " + command);
-                return;
-            }
-            
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Check conditions: " + conditions.size() + ", command: " + actualCommand);
-            }
-            
-            for (Player player : players) {
-                boolean allConditionsMet = true;
-                for (String condition : conditions) {
-                    if (!checkCondition(player, condition)) {
-                        allConditionsMet = false;
-                        break;
-                    }
-                }
-                if (allConditionsMet) {
-                    if (plugin.getConfigManager().isDebug()) {
-                        plugin.getLogger().info("All conditions met for player " + player.getName());
-                    }
-                    executeSingleCommand(session, players, actualCommand, player);
-                }
-            }
+            handleCheckCommand(session, players, command);
             return;
         }
         
-        // Check for single condition (check:condition! command)
-        Matcher checkMatcher = checkPattern.matcher(command);
-        if (checkMatcher.matches()) {
-            String condition = checkMatcher.group(1);
-            String actualCommand = checkMatcher.group(2);
-            
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Single check condition: " + condition + ", command: " + actualCommand);
-            }
-            
-            for (Player player : players) {
-                if (checkCondition(player, condition)) {
-                    if (plugin.getConfigManager().isDebug()) {
-                        plugin.getLogger().info("Condition met for player " + player.getName());
-                    }
-                    executeSingleCommand(session, players, actualCommand, player);
-                }
-            }
-            return;
-        }
-        
-        // Execute for all players
+        // 3. Обычная команда с префиксом
         executeSingleCommand(session, players, command, null);
     }
+    
+    // ===== ОБРАБОТКА CHECK: =====
+    
+    private void handleCheckCommand(CaptureSession session, List<Player> players, String command) {
+        List<String> conditions = new ArrayList<>();
+        String remaining = command;
+        String actualCommand = "";
+        
+        while (remaining.startsWith("check:")) {
+            int nextCheck = remaining.indexOf(" check:", 1);
+            int firstExclamation = remaining.indexOf("! ");
+            
+            if (nextCheck > 0 && nextCheck < firstExclamation) {
+                String condition = remaining.substring(6, nextCheck).trim();
+                conditions.add(condition);
+                remaining = remaining.substring(nextCheck);
+            } else if (firstExclamation > 0) {
+                String condition = remaining.substring(6, firstExclamation).trim();
+                conditions.add(condition);
+                actualCommand = remaining.substring(firstExclamation + 2).trim();
+                break;
+            } else {
+                plugin.getLogger().warning("Invalid check format: " + command);
+                return;
+            }
+        }
+        
+        if (conditions.isEmpty() || actualCommand.isEmpty()) {
+            plugin.getLogger().warning("Empty conditions or command in check: " + command);
+            return;
+        }
+        
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Check conditions: " + conditions.size() + ", command: " + actualCommand);
+        }
+        
+        for (Player player : players) {
+            boolean allConditionsMet = true;
+            for (String condition : conditions) {
+                if (!checkCondition(player, condition)) {
+                    allConditionsMet = false;
+                    break;
+                }
+            }
+            if (allConditionsMet) {
+                if (plugin.getConfigManager().isDebug()) {
+                    plugin.getLogger().info("All conditions met for player " + player.getName());
+                }
+                executeSingleCommand(session, players, actualCommand, player);
+            }
+        }
+    }
+    
+    // ===== ПРОВЕРКА УСЛОВИЯ =====
+    
+    private boolean checkCondition(Player player, String condition) {
+        return plugin.getConditionManager().evaluateCondition(player, condition);
+    }
+    
+    // ===== ВЫПОЛНЕНИЕ ОДНОЙ КОМАНДЫ С ПРЕФИКСОМ =====
     
     private void executeSingleCommand(CaptureSession session, List<Player> players, String command, Player targetPlayer) {
         String[] parts = command.split("! ", 2);
@@ -220,27 +224,31 @@ public class CommandManager {
         String prefix = parts[0];
         String content = parts[1];
         
+        // Заменяем плейсхолдеры
         content = plugin.getPlaceholderManager().parsePlaceholders(targetPlayer, content);
         
         if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Executing single command - prefix: " + prefix + ", content: " + content);
+            plugin.getLogger().info("Executing - prefix: " + prefix + ", content: " + content);
         }
         
         switch (prefix) {
+            // ===== КОНСОЛЬНЫЕ КОМАНДЫ =====
             case "asConsole":
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), content);
                 break;
                 
+            // ===== ИГРОК КАК ИСПОЛНИТЕЛЬ =====
             case "asPlayer":
                 if (targetPlayer != null) {
-                    Bukkit.dispatchCommand(targetPlayer, content);
+                    targetPlayer.performCommand(content);
                 } else {
                     for (Player player : players) {
-                        Bukkit.dispatchCommand(player, content);
+                        player.performCommand(content);
                     }
                 }
                 break;
                 
+            // ===== СООБЩЕНИЯ =====
             case "message":
                 if (targetPlayer != null) {
                     targetPlayer.sendMessage(ColorUtils.colorize(content));
@@ -255,6 +263,7 @@ public class CommandManager {
                 Bukkit.broadcastMessage(ColorUtils.colorize(content));
                 break;
                 
+            // ===== ЗВУКИ =====
             case "sound":
                 executeSound(targetPlayer != null ? targetPlayer : players.get(0), content);
                 break;
@@ -263,55 +272,18 @@ public class CommandManager {
                 executeSoundAll(content);
                 break;
                 
+            // ===== ACTIONBAR =====
             case "actionbar":
-                if (content.contains(":")) {
-                    String[] actionParts = content.split(":", 2);
-                    try {
-                        int ticks = Integer.parseInt(actionParts[0]);
-                        String message = ColorUtils.colorize(actionParts[1]);
-                        sendActionBar(targetPlayer != null ? targetPlayer : players.get(0), message, ticks);
-                    } catch (NumberFormatException e) {
-                        sendActionBar(targetPlayer != null ? targetPlayer : players.get(0), content, 60);
-                    }
-                } else {
-                    sendActionBar(targetPlayer != null ? targetPlayer : players.get(0), content, 60);
-                }
+                handleActionbarCommand(targetPlayer != null ? targetPlayer : players.get(0), content);
                 break;
                 
             case "gActionbar":
-                if (content.contains(":")) {
-                    String[] actionParts = content.split(":", 2);
-                    try {
-                        int ticks = Integer.parseInt(actionParts[0]);
-                        String message = ColorUtils.colorize(actionParts[1]);
-                        sendActionBarAll(message, ticks);
-                    } catch (NumberFormatException e) {
-                        sendActionBarAll(content, 60);
-                    }
-                } else {
-                    sendActionBarAll(content, 60);
-                }
+                handleActionbarAllCommand(content);
                 break;
                 
+            // ===== TITLE =====
             case "title":
-                String[] titleParts = content.split("\n", 2);
-                String title = titleParts[0];
-                String subtitle = titleParts.length > 1 ? titleParts[1] : "";
-                
-                if (content.matches("\\d+:\\d+:\\d+! .+")) {
-                    String[] parts3 = content.split("! ", 2);
-                    String[] times = parts3[0].split(":");
-                    int fadeIn = Integer.parseInt(times[0]);
-                    int stay = Integer.parseInt(times[1]);
-                    int fadeOut = Integer.parseInt(times[2]);
-                    String[] titleContent = parts3[1].split("\n", 2);
-                    sendTitle(targetPlayer != null ? targetPlayer : players.get(0), 
-                        titleContent[0], titleContent.length > 1 ? titleContent[1] : "", 
-                        fadeIn, stay, fadeOut);
-                } else {
-                    sendTitle(targetPlayer != null ? targetPlayer : players.get(0), 
-                        title, subtitle, 20, 40, 20);
-                }
+                handleTitleCommand(targetPlayer != null ? targetPlayer : players.get(0), content);
                 break;
                 
             default:
@@ -319,51 +291,141 @@ public class CommandManager {
         }
     }
     
-    private boolean checkCondition(Player player, String condition) {
-        return plugin.getConditionManager().evaluateCondition(player, condition);
+    // ===== ACTIONBAR ОБРАБОТКА =====
+    
+    private void handleActionbarCommand(Player player, String content) {
+        int duration = 60; // по умолчанию 3 секунды (60 тиков)
+        String message = content;
+        
+        // Формат actionbar:40! текст
+        if (content.contains(":")) {
+            String[] parts = content.split(":", 2);
+            try {
+                duration = Integer.parseInt(parts[0]);
+                message = parts[1];
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        sendActionBar(player, ColorUtils.colorize(message), duration);
     }
     
-    private void executeSound(Player player, String soundString) {
-        Matcher matcher = soundPattern.matcher(soundString);
-        if (matcher.matches()) {
+    private void handleActionbarAllCommand(String content) {
+        int duration = 60;
+        String message = content;
+        
+        if (content.contains(":")) {
+            String[] parts = content.split(":", 2);
             try {
-                String soundName = matcher.group(1);
-                float volume = Float.parseFloat(matcher.group(2));
-                float pitch = Float.parseFloat(matcher.group(3));
-                
-                Sound sound = Sound.valueOf(soundName);
-                player.playSound(player.getLocation(), sound, volume, pitch);
-            } catch (Exception e) {
+                duration = Integer.parseInt(parts[0]);
+                message = parts[1];
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        sendActionBarAll(ColorUtils.colorize(message), duration);
+    }
+    
+    // ===== TITLE ОБРАБОТКА =====
+    
+    private void handleTitleCommand(Player player, String content) {
+        int fadeIn = 20;
+        int stay = 40;
+        int fadeOut = 20;
+        String title = "";
+        String subtitle = "";
+        
+        // Формат title:40:60:80! Заголовок\nПодзаголовок
+        if (content.matches("\\d+:\\d+:\\d+! .+")) {
+            String[] parts3 = content.split("! ", 2);
+            String[] times = parts3[0].split(":");
+            try {
+                fadeIn = Integer.parseInt(times[0]);
+                stay = Integer.parseInt(times[1]);
+                fadeOut = Integer.parseInt(times[2]);
+                String[] titleContent = parts3[1].split("\n", 2);
+                title = titleContent[0];
+                subtitle = titleContent.length > 1 ? titleContent[1] : "";
+                sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
+                return;
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        // Обычный формат title! Заголовок\nПодзаголовок
+        String[] titleParts = content.split("\n", 2);
+        title = titleParts[0];
+        subtitle = titleParts.length > 1 ? titleParts[1] : "";
+        sendTitle(player, title, subtitle, fadeIn, stay, fadeOut);
+    }
+    
+    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
+    
+    private void executeSound(Player player, String soundString) {
+        try {
+            String[] parts = soundString.split(" ");
+            if (parts.length < 3) {
                 plugin.getLogger().warning("Invalid sound format: " + soundString);
+                return;
             }
+            Sound sound = Sound.valueOf(parts[0]);
+            float volume = Float.parseFloat(parts[1]);
+            float pitch = Float.parseFloat(parts[2]);
+            player.playSound(player.getLocation(), sound, volume, pitch);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Invalid sound: " + soundString);
         }
     }
     
     private void executeSoundAll(String soundString) {
-        Matcher matcher = soundPattern.matcher(soundString);
-        if (matcher.matches()) {
-            try {
-                String soundName = matcher.group(1);
-                float volume = Float.parseFloat(matcher.group(2));
-                float pitch = Float.parseFloat(matcher.group(3));
-                
-                Sound sound = Sound.valueOf(soundName);
-                for (Player player : Bukkit.getOnlinePlayers()) {
-                    player.playSound(player.getLocation(), sound, volume, pitch);
-                }
-            } catch (Exception e) {
+        try {
+            String[] parts = soundString.split(" ");
+            if (parts.length < 3) {
                 plugin.getLogger().warning("Invalid sound format: " + soundString);
+                return;
             }
+            Sound sound = Sound.valueOf(parts[0]);
+            float volume = Float.parseFloat(parts[1]);
+            float pitch = Float.parseFloat(parts[2]);
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                player.playSound(player.getLocation(), sound, volume, pitch);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Invalid sound: " + soundString);
         }
     }
     
     private void sendActionBar(Player player, String message, int ticks) {
-        player.sendActionBar(ColorUtils.colorize(message));
+        player.sendActionBar(message);
+        
+        // Если ticks > 20, обновляем каждые 20 тиков
+        int refreshTicks = 20;
+        if (ticks > refreshTicks) {
+            int repeats = ticks / refreshTicks;
+            for (int i = 1; i <= repeats; i++) {
+                final int index = i;
+                Bukkit.getScheduler().runTaskLater(plugin, 
+                    () -> player.sendActionBar(message), 
+                    index * refreshTicks);
+            }
+        }
     }
     
     private void sendActionBarAll(String message, int ticks) {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.sendActionBar(ColorUtils.colorize(message));
+            player.sendActionBar(message);
+        }
+        
+        int refreshTicks = 20;
+        if (ticks > refreshTicks) {
+            int repeats = ticks / refreshTicks;
+            for (int i = 1; i <= repeats; i++) {
+                final int index = i;
+                Bukkit.getScheduler().runTaskLater(plugin, 
+                    () -> {
+                        for (Player player : Bukkit.getOnlinePlayers()) {
+                            player.sendActionBar(message);
+                        }
+                    }, 
+                    index * refreshTicks);
+            }
         }
     }
     
