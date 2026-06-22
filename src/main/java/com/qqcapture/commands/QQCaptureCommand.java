@@ -151,31 +151,38 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
      * Остановка ивента
      */
     private boolean handleStop(CommandSender sender, String[] args) {
-        // Проверка прав
         if (!sender.hasPermission("qqcapture.admin.stop")) {
             sender.sendMessage(ColorUtils.colorize(
                 plugin.getLanguageManager().getMessage("command-no-permission")
             ));
             return true;
         }
-        
+    
         if (args.length < 2) {
-            sender.sendMessage(ColorUtils.colorize("&cUsage: /qqcapture stop <sessionId>"));
+            sender.sendMessage(ColorUtils.colorize("&cUsage: /qqcapture stop <template>"));
             return true;
         }
-        
-        String sessionId = args[1];
-        var session = plugin.getSessionManager().getSession(sessionId);
-        
+    
+        String templateName = args[1];
+    
+        // Ищем сессию по имени шаблона
+        CaptureSession session = null;
+        for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
+            if (s.getTemplate().getName().equalsIgnoreCase(templateName)) {
+                session = s;
+                break;
+            }
+        }
+    
         if (session == null) {
-            sender.sendMessage(ColorUtils.colorize("&cSession not found: " + sessionId));
+            sender.sendMessage(ColorUtils.colorize("&cNo active session found for template: " + templateName));
             return true;
         }
-        
-        plugin.getSessionManager().stopSession(sessionId);
-        sender.sendMessage(ColorUtils.colorize("&aSession '" + sessionId + "' stopped!"));
-        plugin.getLogger().info("Session " + sessionId + " stopped by " + sender.getName());
-        
+    
+        plugin.getSessionManager().stopSession(session.getSessionId());
+        sender.sendMessage(ColorUtils.colorize("&aSession for template '" + templateName + "' stopped!"));
+        plugin.getLogger().info("Session " + session.getSessionId() + " stopped by " + sender.getName());
+    
         return true;
     }
     
