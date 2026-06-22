@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class CaptureSession {
+    private final QQCapture plugin;
     private final String sessionId;
     private final Template template;
     private final int targetPoints;
