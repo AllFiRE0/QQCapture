@@ -233,32 +233,55 @@ public class TemplateConfig {
         }
         builder.teamMultiplier(teamMultiplier);
         
-        // --- Region ---
-        String pos1Str = section.getString("pos1", "0,0,0");
-        String pos2Str = section.getString("pos2", "0,-1,0");
+        // ===== ЗОНЫ (НОВОЕ) =====
+        Map<Integer, Template.Zone> zones = new LinkedHashMap<>();
+        ConfigurationSection zonesSection = section.getConfigurationSection("zones");
         
-        Location pos1 = parseLocation(pos1Str);
-        Location pos2 = parseLocation(pos2Str);
-        
-        if (pos1 == null || pos2 == null) {
-            validationErrors.add("Template '" + name + "': Invalid positions - pos1: " + pos1Str + ", pos2: " + pos2Str);
-            pos1 = new Location(null, 0, 0, 0);
-            pos2 = new Location(null, 0, -1, 0);
-        }
-        
-        if (pos1.getWorld() == null || pos2.getWorld() == null) {
-            World defaultWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
-            if (defaultWorld != null) {
-                pos1.setWorld(defaultWorld);
-                pos2.setWorld(defaultWorld);
-            } else {
-                validationErrors.add("Template '" + name + "': No default world available!");
+        if (zonesSection != null) {
+            for (String key : zonesSection.getKeys(false)) {
+                ConfigurationSection zoneSection = zonesSection.getConfigurationSection(key);
+                if (zoneSection != null) {
+                    try {
+                        int id = Integer.parseInt(key);
+                        String pos1Str = zoneSection.getString("pos1");
+                        String pos2Str = zoneSection.getString("pos2");
+                        
+                        Location pos1 = parseLocation(pos1Str);
+                        Location pos2 = parseLocation(pos2Str);
+                        
+                        if (pos1 != null && pos2 != null) {
+                            zones.put(id, new Template.Zone(pos1, pos2));
+                            if (debugMode) {
+                                plugin.getLogger().info("  Zone " + id + ": " + pos1Str + " -> " + pos2Str);
+                            }
+                        } else {
+                            validationWarnings.add("Template '" + name + "': Invalid zone " + key + " positions");
+                        }
+                    } catch (NumberFormatException e) {
+                        validationWarnings.add("Template '" + name + "': Invalid zone ID '" + key + "', must be number");
+                    }
+                }
             }
         }
         
-        builder.pos1(pos1);
-        builder.pos2(pos2);
+        // Если зон нет — создаем из старых pos1/pos2
+        if (zones.isEmpty()) {
+            String pos1Str = section.getString("pos1", "0,0,0");
+            String pos2Str = section.getString("pos2", "0,-1,0");
+            Location pos1 = parseLocation(pos1Str);
+            Location pos2 = parseLocation(pos2Str);
+            if (pos1 != null && pos2 != null) {
+                zones.put(1, new Template.Zone(pos1, pos2));
+            } else {
+                validationErrors.add("Template '" + name + "': Invalid positions - pos1: " + pos1Str + ", pos2: " + pos2Str);
+                World defaultWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+                zones.put(1, new Template.Zone(new Location(defaultWorld, 0, 0, 0), new Location(defaultWorld, 0, -1, 0)));
+            }
+        }
         
+        builder.zones(zones);
+        
+        // --- Region ---
         String regionName = section.getString("region-name", "");
         builder.regionName(regionName);
         
