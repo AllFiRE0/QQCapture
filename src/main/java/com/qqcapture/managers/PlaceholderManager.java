@@ -124,6 +124,7 @@ public class PlaceholderManager {
             return placeholder;
         }
         
+        // Проверяем fallback в property
         int fallbackIndex = property.indexOf("_&");
         if (fallbackIndex > 0) {
             fallback = property.substring(fallbackIndex + 2);
@@ -231,6 +232,7 @@ public class PlaceholderManager {
             }
         }
         
+        // ===== ВОЗВРАЩАЕМ FALLBACK =====
         return fallback.isEmpty() ? "0" : fallback;
     }
     
