@@ -103,53 +103,66 @@ public class CaptureSession {
         
         // Calculate capture points
         int pointsToAdd = 0;
-        for (Player player : playersInZone) {
+        Map<UUID, Integer> playerContributions = new HashMap<>();
+        
+        for (Player player : activePlayers) {
             // Check individual conditions
             if (!QQCapture.getInstance().getConditionManager().checkPlayerConditions(player, template)) {
                 continue;
             }
             
             // Check all players conditions
-            if (!QQCapture.getInstance().getConditionManager().checkAllPlayersConditions(playersInZone, template)) {
+            if (!QQCapture.getInstance().getConditionManager().checkAllPlayersConditions(activePlayers, template)) {
                 continue;
             }
             
             // Calculate points with multiplier
             double playerMultiplier = template.getMultiplier();
+            int contribution = 0;
             if (playerMultiplier > 0) {
-                pointsToAdd += (int) (template.getNeedAmount() * playerMultiplier);
+                contribution = (int) (template.getNeedAmount() * playerMultiplier);
+                pointsToAdd += contribution;
             }
             
             // Add player to session data
             PlayerData data = players.computeIfAbsent(player.getUniqueId(), 
                 k -> new PlayerData(player));
-            data.addContribution((int) (template.getNeedAmount() * template.getMultiplier()));
+            data.addContribution(contribution);
+            playerContributions.put(player.getUniqueId(), contribution);
         }
         
         // Apply team multiplier
-        if (template.getTeamMultiplier() > 0 && !playersInZone.isEmpty()) {
+        if (template.getTeamMultiplier() > 0 && !activePlayers.isEmpty()) {
             double teamMultiplier = template.getTeamMultiplier();
-            if ("индивидуально".equalsIgnoreCase(template.getTeamMultiplierType())) {
+            String teamType = template.getTeamMultiplierType();
+            
+            // ИСПРАВЛЕНО: используем английские значения
+            if ("individual".equalsIgnoreCase(teamType)) {
                 // Individual team multiplier
-                for (Player player : playersInZone) {
+                for (Player player : activePlayers) {
                     PlayerData data = players.get(player.getUniqueId());
                     if (data != null) {
-                        int bonus = (int) (data.getContribution() * teamMultiplier);
+                        int contribution = playerContributions.getOrDefault(player.getUniqueId(), 0);
+                        int bonus = (int) (contribution * teamMultiplier);
                         data.addContribution(bonus);
                         pointsToAdd += bonus;
                     }
                 }
-            } else {
+            } else if ("shared".equalsIgnoreCase(teamType)) {
                 // Shared team multiplier
-                int bonus = (int) (pointsToAdd * teamMultiplier);
-                for (Player player : playersInZone) {
+                int totalPoints = playerContributions.values().stream().mapToInt(Integer::intValue).sum();
+                int bonus = (int) (totalPoints * teamMultiplier);
+                int bonusPerPlayer = activePlayers.isEmpty() ? 0 : bonus / activePlayers.size();
+                
+                for (Player player : activePlayers) {
                     PlayerData data = players.get(player.getUniqueId());
                     if (data != null) {
-                        data.addContribution(bonus / playersInZone.size());
+                        data.addContribution(bonusPerPlayer);
                     }
                 }
                 pointsToAdd += bonus;
             }
+            // Если "disabled" - ничего не делаем
         }
         
         // Update current points
@@ -157,13 +170,13 @@ public class CaptureSession {
         
         // Execute commands if tick-command is true
         if (template.isTickCommand()) {
-            QQCapture.getInstance().getCommandManager().executeCommands(this, playersInZone);
+            QQCapture.getInstance().getCommandManager().executeCommands(this, activePlayers);
         }
         
         // Check if completed
         if (currentPoints >= targetPoints) {
             complete = true;
-            onComplete(playersInZone);
+            onComplete(activePlayers);
         }
     }
     
