@@ -30,6 +30,70 @@ public class CaptureSession {
     private BukkitRunnable startDelayTask;
     private BukkitRunnable endDelayTask;
     
+    // ===== КЭШ ЗАВЕРШЕННЫХ СЕССИЙ =====
+    private static final Map<String, SessionSnapshot> completedSessions = new ConcurrentHashMap<>();
+    private static final long SNAPSHOT_LIFETIME = 60000; // 60 секунд
+    
+    // ===== ВНУТРЕННИЙ КЛАСС ДЛЯ ХРАНЕНИЯ ДАННЫХ =====
+    public static class SessionSnapshot {
+        private final String templateName;
+        private final int totalPoints;
+        private final int targetPoints;
+        private final Map<UUID, Integer> contributions;
+        private final Map<UUID, String> playerNames;
+        private final long endTime;
+        private final String sessionId;
+        
+        public SessionSnapshot(CaptureSession session) {
+            this.sessionId = session.sessionId;
+            this.templateName = session.template.getName();
+            this.totalPoints = session.currentPoints;
+            this.targetPoints = session.targetPoints;
+            this.endTime = System.currentTimeMillis();
+            this.contributions = new HashMap<>();
+            this.playerNames = new HashMap<>();
+            
+            for (Map.Entry<UUID, PlayerData> entry : session.players.entrySet()) {
+                UUID uuid = entry.getKey();
+                PlayerData data = entry.getValue();
+                this.contributions.put(uuid, data.getContribution());
+                this.playerNames.put(uuid, data.getPlayerName());
+            }
+        }
+        
+        public boolean isValid() {
+            return System.currentTimeMillis() - endTime < SNAPSHOT_LIFETIME;
+        }
+        
+        public String getTemplateName() { return templateName; }
+        public int getTotalPoints() { return totalPoints; }
+        public int getTargetPoints() { return targetPoints; }
+        public Map<UUID, Integer> getContributions() { return contributions; }
+        public Map<UUID, String> getPlayerNames() { return playerNames; }
+        public long getEndTime() { return endTime; }
+        public String getSessionId() { return sessionId; }
+    }
+    
+    // ===== МЕТОД ДЛЯ ПОЛУЧЕНИЯ СНЕПШОТА ПО ИМЕНИ ШАБЛОНА =====
+    public static SessionSnapshot getCompletedSession(String templateName) {
+        for (SessionSnapshot snapshot : completedSessions.values()) {
+            if (snapshot.isValid() && snapshot.templateName.equalsIgnoreCase(templateName)) {
+                return snapshot;
+            }
+        }
+        return null;
+    }
+    
+    public static List<SessionSnapshot> getAllCompletedSessions() {
+        List<SessionSnapshot> valid = new ArrayList<>();
+        for (SessionSnapshot snapshot : completedSessions.values()) {
+            if (snapshot.isValid()) {
+                valid.add(snapshot);
+            }
+        }
+        return valid;
+    }
+    
     public CaptureSession(String sessionId, Template template, int targetPoints, boolean silent, Player starter) {
         this.plugin = QQCapture.getInstance();
         this.sessionId = sessionId;
@@ -157,7 +221,6 @@ public class CaptureSession {
                 plugin.getLogger().info("  Start command: " + cmd);
             }
             List<Player> allPlayers = new ArrayList<>(Bukkit.getOnlinePlayers());
-            // ИСПРАВЛЕНО №1:
             QQCapture.getInstance().getCommandManager().executeStartCommands(this, allPlayers);
         } else {
             if (plugin.getConfigManager().isDebug()) {
@@ -248,10 +311,9 @@ public class CaptureSession {
             for (String cmd : tickCommands) {
                 plugin.getLogger().info("  Tick command: " + cmd);
             }
-            // ИСПРАВЛЕНО №2:
             QQCapture.getInstance().getCommandManager().executeTickCommands(this, activePlayers);
         }
-        // ← ДОБАВИТЬ ЭТОТ БЛОК:
+        
         if (currentPoints >= targetPoints) {
             plugin.getLogger().info("COMPLETED! Current: " + currentPoints + ", Target: " + targetPoints);
             complete = true;
@@ -295,9 +357,25 @@ public class CaptureSession {
     }
     
     private void onComplete(List<Player> playersInZone) {
+        // ===== СОХРАНЯЕМ СНЕПШОТ =====
+        SessionSnapshot snapshot = new SessionSnapshot(this);
+        completedSessions.put(sessionId, snapshot);
+        
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("Session snapshot saved: " + sessionId + " (" + snapshot.getContributions().size() + " players)");
+        }
+        
+        // Удаляем через 60 секунд
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            completedSessions.remove(sessionId);
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Session snapshot removed: " + sessionId);
+            }
+        }, 1200L); // 60 секунд * 20 тиков
+        
+        // ===== ВЫПОЛНЯЕМ END КОМАНДЫ =====
         List<String> endCommands = template.getEndCommands();
         if (endCommands != null && !endCommands.isEmpty()) {
-            // ИСПРАВЛЕНО №3:
             QQCapture.getInstance().getCommandManager().executeEndCommands(this, playersInZone);
         }
         
