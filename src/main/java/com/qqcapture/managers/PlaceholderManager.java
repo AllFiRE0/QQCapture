@@ -187,21 +187,43 @@ public class PlaceholderManager {
     }
     
     private String parseTopPlaceholder(String templateName, CaptureSession session, String property, String fallback) {
+        // ===== ОТЛАДКА =====
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("parseTopPlaceholder - template: " + templateName + ", property: " + property);
+            if (session != null) {
+                plugin.getLogger().info("  Active session - players: " + session.getPlayers().size());
+                for (Map.Entry<UUID, PlayerData> entry : session.getPlayers().entrySet()) {
+                    plugin.getLogger().info("    " + entry.getValue().getPlayerName() + ": " + entry.getValue().getContribution());
+                }
+            } else {
+                plugin.getLogger().info("  Active session: NULL");
+            }
+        
+            if (templateName != null) {
+                CaptureSession.SessionSnapshot snapshot = CaptureSession.getCompletedSession(templateName);
+                if (snapshot != null) {
+                    plugin.getLogger().info("  Completed session - players: " + snapshot.getContributions().size());
+                } else {
+                plugin.getLogger().info("  Completed session: NULL");
+                }
+            }
+        }
+    
         String withoutTop = property.substring("top_".length());
         String[] parts = withoutTop.split("_", 2);
-        
+    
         if (parts.length < 2) {
             return fallback.isEmpty() ? "0" : fallback;
         }
-        
+    
         try {
             int position = Integer.parseInt(parts[0]);
             String type = parts[1];
-            
+        
             Map<UUID, Integer> contributions = null;
             Map<UUID, String> playerNames = null;
             String sessionId = null;
-            
+        
             // ===== СНАЧАЛА ПРОВЕРЯЕМ АКТИВНУЮ СЕССИЮ =====
             if (session != null && !session.getPlayers().isEmpty()) {
                 contributions = new HashMap<>();
@@ -212,7 +234,7 @@ public class PlaceholderManager {
                 }
                 sessionId = session.getSessionId();
             }
-            
+        
             // ===== ИЛИ ПРОВЕРЯЕМ ЗАВЕРШЕННУЮ СЕССИЮ =====
             if (contributions == null || contributions.isEmpty()) {
                 if (templateName != null) {
@@ -224,23 +246,33 @@ public class PlaceholderManager {
                     }
                 }
             }
-            
+        
             if (contributions == null || contributions.isEmpty()) {
+                if (plugin.getConfigManager().isDebug()) {
+                    plugin.getLogger().info("parseTopPlaceholder - no contributions found");
+                }
                 return fallback.isEmpty() ? "0" : fallback;
             }
-            
+        
             // Сортируем по вкладу
             List<Map.Entry<UUID, Integer>> sorted = contributions.entrySet().stream()
                 .sorted((e1, e2) -> Integer.compare(e2.getValue(), e1.getValue()))
                 .toList();
-            
+        
             if (position > sorted.size()) {
+                if (plugin.getConfigManager().isDebug()) {
+                    plugin.getLogger().info("parseTopPlaceholder - position " + position + " > " + sorted.size());
+                }
                 return fallback.isEmpty() ? "0" : fallback;
             }
-            
+        
             Map.Entry<UUID, Integer> entry = sorted.get(position - 1);
             OfflinePlayer topPlayer = Bukkit.getOfflinePlayer(entry.getKey());
-            
+        
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("parseTopPlaceholder - top player: " + topPlayer.getName() + ", points: " + entry.getValue());
+            }
+        
             if (type.equals("name")) {
                 String name = playerNames != null ? playerNames.get(entry.getKey()) : null;
                 if (name != null && !name.isEmpty()) return name;
@@ -248,11 +280,13 @@ public class PlaceholderManager {
             } else if (type.equals("value") || type.equals("points")) {
                 return String.valueOf(entry.getValue());
             }
-            
-        } catch (NumberFormatException e) {
-            // Invalid position
-        }
         
+        } catch (NumberFormatException e) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().warning("parseTopPlaceholder - invalid position: " + parts[0]);
+            }
+        }
+    
         return fallback.isEmpty() ? "0" : fallback;
     }
     
