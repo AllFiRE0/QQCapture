@@ -87,7 +87,7 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         }
         
         if (args.length < 2) {
-            sender.sendMessage(ColorUtils.colorize("&cUsage: /qqcapture start <template> [-p:points] [-d:duration] [-r:region] [-s]"));
+            sender.sendMessage(ColorUtils.colorize("&cUsage: /qqcapture start <template> [-p:points] [-d:duration] [-r:region] [-m:multiplier] [-mt:teamMultiplier] [-t:tickCapture] [-s]"));
             return true;
         }
         
@@ -100,6 +100,9 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         String pointsStr = params.get("p");
         String durationStr = params.get("d");
         String regionName = params.get("r");
+        String multiplierStr = params.get("m");
+        String teamMultiplierStr = params.get("mt");
+        String tickCaptureStr = params.get("t");
         
         // Validate template
         if (!plugin.getConfigManager().templateExists(templateName)) {
@@ -114,6 +117,9 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         int points = template.getNeedAmount();
         int duration = template.getMaxDuration();
         String finalRegionName = template.getRegionName();
+        Double multiplier = null;
+        Double teamMultiplier = null;
+        Integer tickCapture = null;
         
         // Переопределяем параметры если указаны в команде
         if (pointsStr != null) {
@@ -146,8 +152,48 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
             finalRegionName = regionName;
         }
         
+        if (multiplierStr != null) {
+            try {
+                multiplier = Double.parseDouble(multiplierStr);
+                if (multiplier < 0) {
+                    sender.sendMessage(ColorUtils.colorize("&cMultiplier cannot be negative!"));
+                    return true;
+                }
+            } catch (NumberFormatException e) {
+                sender.sendMessage(ColorUtils.colorize("&cInvalid multiplier: " + multiplierStr));
+                return true;
+            }
+        }
+        
+        if (teamMultiplierStr != null) {
+            try {
+                teamMultiplier = Double.parseDouble(teamMultiplierStr);
+                if (teamMultiplier < 0) {
+                    sender.sendMessage(ColorUtils.colorize("&cTeam multiplier cannot be negative!"));
+                    return true;
+                }
+            } catch (NumberFormatException e) {
+                sender.sendMessage(ColorUtils.colorize("&cInvalid team multiplier: " + teamMultiplierStr));
+                return true;
+            }
+        }
+        
+        if (tickCaptureStr != null) {
+            try {
+                tickCapture = Integer.parseInt(tickCaptureStr);
+                if (tickCapture < 1) {
+                    sender.sendMessage(ColorUtils.colorize("&cTick capture must be greater than 0!"));
+                    return true;
+                }
+            } catch (NumberFormatException e) {
+                sender.sendMessage(ColorUtils.colorize("&cInvalid tick capture: " + tickCaptureStr));
+                return true;
+            }
+        }
+        
         // Создаем копию шаблона с переопределенными параметрами
-        Template finalTemplate = createOverriddenTemplate(template, points, duration, finalRegionName);
+        Template finalTemplate = createOverriddenTemplate(template, points, duration, finalRegionName, 
+                                                          multiplier, teamMultiplier, tickCapture);
         
         Player starter = sender instanceof Player ? (Player) sender : null;
         boolean started = plugin.getSessionManager().startSession(finalTemplate, silent, starter);
@@ -160,7 +206,11 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                 ));
             }
             plugin.getLogger().info("Session started: " + templateName + " with " + points + " points, duration: " + 
-                (duration > 0 ? duration + "s" : "∞") + " by " + sender.getName());
+                (duration > 0 ? duration + "s" : "∞") + 
+                (multiplier != null ? ", multiplier: " + multiplier : "") +
+                (teamMultiplier != null ? ", team multiplier: " + teamMultiplier : "") +
+                (tickCapture != null ? ", tick capture: " + tickCapture : "") +
+                " by " + sender.getName());
         } else {
             sender.sendMessage(ColorUtils.colorize("&cFailed to start session! Check console for errors."));
         }
@@ -182,13 +232,20 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                 params.put("d", arg.substring(3));
             } else if (arg.startsWith("-r:")) {
                 params.put("r", arg.substring(3));
+            } else if (arg.startsWith("-m:")) {
+                params.put("m", arg.substring(3));
+            } else if (arg.startsWith("-mt:")) {
+                params.put("mt", arg.substring(4));
+            } else if (arg.startsWith("-t:")) {
+                params.put("t", arg.substring(3));
             }
         }
         
         return params;
     }
     
-    private Template createOverriddenTemplate(Template original, int points, int duration, String regionName) {
+    private Template createOverriddenTemplate(Template original, int points, int duration, String regionName,
+                                              Double multiplier, Double teamMultiplier, Integer tickCapture) {
         // Создаем новый шаблон на основе оригинального с переопределенными параметрами
         Template.Builder builder = new Template.Builder(original.getName() + "_override");
         
@@ -212,16 +269,16 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                .permission(original.getPermission())
                .minPlayers(original.getMinPlayers())
                .maxPlayers(original.getMaxPlayers())
-               .needAmount(points)  // Переопределяем
-               .tickCapture(original.getTickCapture())
-               .multiplier(original.getMultiplier())
+               .needAmount(points)
+               .tickCapture(tickCapture != null ? tickCapture : original.getTickCapture())
+               .multiplier(multiplier != null ? multiplier : original.getMultiplier())
                .teamMultiplierType(original.getTeamMultiplierType())
-               .teamMultiplier(original.getTeamMultiplier())
+               .teamMultiplier(teamMultiplier != null ? teamMultiplier : original.getTeamMultiplier())
                .pos1(original.getPos1())
                .pos2(original.getPos2())
-               .regionName(regionName)  // Переопределяем
+               .regionName(regionName)
                .regionFlags(original.getRegionFlags())
-               .maxDuration(duration)  // Переопределяем
+               .maxDuration(duration)
                .startCommands(original.getStartCommands())
                .tickCommands(original.getTickCommands())
                .endCommands(original.getEndCommands());
@@ -340,7 +397,7 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(ColorUtils.colorize("&6=== QQCapture Commands ==="));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture reload &7- Reload config and languages"));
-        sender.sendMessage(ColorUtils.colorize("&e/qqcapture start <template> [-p:points] [-d:duration] [-r:region] [-s] &7- Start an event"));
+        sender.sendMessage(ColorUtils.colorize("&e/qqcapture start <template> [-p:points] [-d:duration] [-r:region] [-m:multiplier] [-mt:teamMultiplier] [-t:tickCapture] [-s] &7- Start an event"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture stop <template> &7- Stop a session by template name"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture list &7- List active sessions"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture info <template> &7- Show template info"));
@@ -368,7 +425,7 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         } else if (args.length >= 3) {
             if (args[0].equalsIgnoreCase("start")) {
                 String lastArg = args[args.length - 1];
-                String[] options = {"-p:", "-d:", "-r:", "-s"};
+                String[] options = {"-p:", "-d:", "-r:", "-m:", "-mt:", "-t:", "-s"};
                 for (String option : options) {
                     if (option.startsWith(lastArg.toLowerCase())) {
                         completions.add(option);
