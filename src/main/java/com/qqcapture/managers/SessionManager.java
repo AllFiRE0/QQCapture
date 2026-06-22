@@ -22,6 +22,9 @@ public class SessionManager {
         this.sessionTasks = new ConcurrentHashMap<>();
     }
     
+    /**
+     * Запуск сессии по имени шаблона (стандартный способ)
+     */
     public boolean startSession(String templateName, int points, boolean silent, Player starter) {
         Template template = plugin.getConfigManager().getTemplate(templateName);
         if (template == null) {
@@ -30,6 +33,26 @@ public class SessionManager {
         
         String sessionId = generateSessionId(templateName);
         CaptureSession session = new CaptureSession(sessionId, template, points, silent, starter);
+        
+        activeSessions.put(sessionId, session);
+        
+        // Start session task
+        startSessionTask(sessionId);
+        
+        plugin.getLogger().info("Session started: " + sessionId + " by " + starter.getName());
+        return true;
+    }
+    
+    /**
+     * Запуск сессии с готовым шаблоном (для переопределенных параметров из команды)
+     */
+    public boolean startSession(Template template, boolean silent, Player starter) {
+        if (template == null) {
+            return false;
+        }
+        
+        String sessionId = generateSessionId(template.getName());
+        CaptureSession session = new CaptureSession(sessionId, template, template.getNeedAmount(), silent, starter);
         
         activeSessions.put(sessionId, session);
         
