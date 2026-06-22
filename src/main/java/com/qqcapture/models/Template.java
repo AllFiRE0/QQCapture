@@ -57,6 +57,11 @@ public class Template {
     // Max duration in seconds (0 = no limit)
     private final int maxDuration;
     
+    // Top storage settings
+    private final boolean topStorageEnabled;
+    private final int topStorageDuration;
+    private final boolean topAutoClearOnStart;
+    
     private Template(Builder builder) {
         this.name = builder.name;
         this.bossBarEnabled = builder.bossBarEnabled;
@@ -91,6 +96,9 @@ public class Template {
         this.tickCommands = builder.tickCommands;
         this.endCommands = builder.endCommands;
         this.maxDuration = builder.maxDuration;
+        this.topStorageEnabled = builder.topStorageEnabled;
+        this.topStorageDuration = builder.topStorageDuration;
+        this.topAutoClearOnStart = builder.topAutoClearOnStart;
     }
     
     // Getters
@@ -127,6 +135,9 @@ public class Template {
     public List<String> getTickCommands() { return tickCommands; }
     public List<String> getEndCommands() { return endCommands; }
     public int getMaxDuration() { return maxDuration; }
+    public boolean isTopStorageEnabled() { return topStorageEnabled; }
+    public int getTopStorageDuration() { return topStorageDuration; }
+    public boolean isTopAutoClearOnStart() { return topAutoClearOnStart; }
     
     // Helper methods
     public boolean hasValidPositions() {
@@ -190,6 +201,9 @@ public class Template {
                ", tickCommands=" + (tickCommands != null ? tickCommands.size() : 0) +
                ", endCommands=" + (endCommands != null ? endCommands.size() : 0) +
                ", maxDuration=" + maxDuration +
+               ", topStorageEnabled=" + topStorageEnabled +
+               ", topStorageDuration=" + topStorageDuration +
+               ", topAutoClearOnStart=" + topAutoClearOnStart +
                '}';
     }
     
@@ -228,6 +242,9 @@ public class Template {
         private List<String> tickCommands = new ArrayList<>();
         private List<String> endCommands = new ArrayList<>();
         private int maxDuration = 0;
+        private boolean topStorageEnabled = true;
+        private int topStorageDuration = 300;
+        private boolean topAutoClearOnStart = true;
         
         public Builder(String name) {
             this.name = name;
@@ -393,8 +410,22 @@ public class Template {
             return this;
         }
         
+        public Builder topStorageEnabled(boolean topStorageEnabled) {
+            this.topStorageEnabled = topStorageEnabled;
+            return this;
+        }
+        
+        public Builder topStorageDuration(int topStorageDuration) {
+            this.topStorageDuration = topStorageDuration;
+            return this;
+        }
+        
+        public Builder topAutoClearOnStart(boolean topAutoClearOnStart) {
+            this.topAutoClearOnStart = topAutoClearOnStart;
+            return this;
+        }
+        
         public Template build() {
-            // Ensure world is set for locations if possible
             if (pos1 != null && pos1.getWorld() == null) {
                 World defaultWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
                 if (defaultWorld != null) {
