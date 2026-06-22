@@ -27,6 +27,10 @@ public class PlayerListener implements Listener {
             if (template.isBossBarEnabled() && template.isSendOnRejoin()) {
                 if (isPlayerInZone(player, session)) {
                     plugin.getBossBarManager().showBossBar(player, session);
+                    // Добавляем игрока в сессию при перезаходе, если он в зоне
+                    if (!session.getPlayers().containsKey(player.getUniqueId())) {
+                        plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
+                    }
                 }
             }
         }
