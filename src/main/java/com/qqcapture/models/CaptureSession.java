@@ -469,4 +469,9 @@ public class CaptureSession {
     public Map<UUID, PlayerData> getPlayers() { return players; }
     public boolean isStopped() { return stopped; }
     public boolean isComplete() { return complete; }
+
+    // ===== ДОБАВЛЕНО: ПРОВЕРКА ИГРОКА В ЛЮБОЙ ЗОНЕ =====
+    public boolean isPlayerInAnyZone(Player player) {
+        return template.isInAnyZone(player.getLocation());
+    }
 }
