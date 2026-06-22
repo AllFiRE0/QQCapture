@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'com.github.johnrengelman.shadow' version '8.1.1' // Обновлено с 7.1.2 до 8.1.1
 }
 
 group = 'com.qqcapture'
@@ -28,7 +28,7 @@ repositories {
         url = 'https://repo.extendedclip.com/content/repositories/placeholderapi/'
     }
     maven {
-        name = 'helpch'  // ← НОВЫЙ РЕПОЗИТОРИЙ
+        name = 'helpch'
         url = 'https://repo.helpch.at/releases/'
     }
     maven {
@@ -52,8 +52,8 @@ dependencies {
     // Vault
     compileOnly 'net.milkbowl.vault:VaultAPI:1.7'
     
-    // PlaceholderAPI - НОВАЯ ВЕРСИЯ 2.12.2
-    compileOnly 'me.clip:placeholderapi:2.12.2'  // ← ИЗМЕНЕНО
+    // PlaceholderAPI
+    compileOnly 'me.clip:placeholderapi:2.12.2'
     
     // SnakeYAML для работы с YAML
     implementation 'org.yaml:snakeyaml:2.2'
