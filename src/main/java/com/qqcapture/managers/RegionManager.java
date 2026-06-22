@@ -4,12 +4,12 @@ import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.WorldGuard;
-// import com.sk89q.worldguard.bukkit.WGBukkit;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.Flag;
 import com.sk89q.worldguard.protection.flags.StateFlag;
-import com.sk89q.worldguard.protection.managers.RegionManager;
+// ← УДАЛИ ЭТУ СТРОКУ:
+// import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
@@ -53,22 +53,20 @@ public class RegionManager {
         try {
             World world = session.getTemplate().getPos1().getWorld();
             if (world == null) {
-                // Use default world
                 world = plugin.getServer().getWorlds().get(0);
             }
             
             RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-            RegionManager manager = container.get(com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world));
+            // ИСПОЛЬЗУЙ ПОЛНОЕ ИМЯ ВМЕСТО ИМПОРТА:
+            com.sk89q.worldguard.protection.managers.RegionManager manager = container.get(com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world));
             
             if (manager == null) {
                 plugin.getLogger().warning("Could not get RegionManager for world: " + world.getName());
                 return;
             }
             
-            // Create temporary region
             ProtectedRegion region = manager.getRegion(regionName);
             if (region == null) {
-                // Create new region
                 com.sk89q.worldedit.math.BlockVector3 min = com.sk89q.worldedit.math.BlockVector3.at(
                     Math.min(session.getTemplate().getPos1().getBlockX(), session.getTemplate().getPos2().getBlockX()),
                     Math.min(session.getTemplate().getPos1().getBlockY(), session.getTemplate().getPos2().getBlockY()),
@@ -84,10 +82,8 @@ public class RegionManager {
                 manager.addRegion(region);
             }
             
-            // Apply flags
             applyRegionFlags(region, session.getTemplate().getRegionFlags());
             
-            // Debug
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("Region setup: " + regionName + " for session " + session.getSessionId());
             }
@@ -104,7 +100,6 @@ public class RegionManager {
         }
         
         try {
-            // Parse flags: {pvp: deny, give-effect: levitation 1 2}
             String cleanFlags = flagsString.replaceAll("[{}]", "");
             String[] flagEntries = cleanFlags.split(",");
             
@@ -113,8 +108,6 @@ public class RegionManager {
                 if (parts.length == 2) {
                     String flagName = parts[0].trim();
                     String flagValue = parts[1].trim();
-                    
-                    // Apply flag
                     applyFlag(region, flagName, flagValue);
                 }
             }
@@ -125,7 +118,6 @@ public class RegionManager {
     
     private void applyFlag(ProtectedRegion region, String flagName, String flagValue) {
         try {
-            // Handle common flags
             if (flagName.equalsIgnoreCase("pvp")) {
                 StateFlag pvpFlag = com.sk89q.worldguard.protection.flags.Flags.PVP;
                 region.setFlag(pvpFlag, parseStateFlag(flagValue));
@@ -148,7 +140,6 @@ public class RegionManager {
                 StateFlag useFlag = com.sk89q.worldguard.protection.flags.Flags.USE;
                 region.setFlag(useFlag, parseStateFlag(flagValue));
             }
-            // Add more flags as needed
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to apply flag: " + flagName + " = " + flagValue);
         }
@@ -175,7 +166,8 @@ public class RegionManager {
             }
             
             RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-            RegionManager manager = container.get(com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world));
+            // ИСПОЛЬЗУЙ ПОЛНОЕ ИМЯ ВМЕСТО ИМПОРТА:
+            com.sk89q.worldguard.protection.managers.RegionManager manager = container.get(com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world));
             
             if (manager == null) {
                 return false;
