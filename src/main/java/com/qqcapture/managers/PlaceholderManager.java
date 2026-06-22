@@ -3,6 +3,8 @@ package com.qqcapture.managers;
 import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.PlayerData;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.*;
@@ -37,17 +39,14 @@ public class PlaceholderManager {
     }
     
     private String parsePlaceholder(Player player, String placeholder) {
-        // Player-specific placeholders
         if (placeholder.startsWith("player_")) {
             return parsePlayerPlaceholder(player, placeholder);
         }
         
-        // QQCapture specific placeholders
         if (placeholder.startsWith("qqcapture_")) {
             return parseQQCapturePlaceholder(player, placeholder);
         }
         
-        // Default placeholders
         if (player != null) {
             switch (placeholder) {
                 case "player_name": return player.getName();
@@ -63,7 +62,6 @@ public class PlaceholderManager {
             }
         }
         
-        // Try PlaceholderAPI
         if (plugin.getPlaceholderAPIHook() != null && player != null) {
             return plugin.getPlaceholderAPIHook().parsePlaceholders(player, "%" + placeholder + "%");
         }
@@ -75,7 +73,6 @@ public class PlaceholderManager {
         if (placeholder.startsWith("player_")) {
             String key = placeholder.substring(7);
             
-            // Player data from Vault
             if (key.startsWith("vault_")) {
                 if (plugin.getVaultIntegration() != null && player != null) {
                     String vaultKey = key.substring(6);
@@ -87,7 +84,6 @@ public class PlaceholderManager {
                 }
             }
             
-            // Player data from active session
             if (key.startsWith("session_")) {
                 CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
                 if (session != null) {
@@ -107,41 +103,33 @@ public class PlaceholderManager {
     }
     
     private String parseQQCapturePlaceholder(Player player, String placeholder) {
-        // Format: qqcapture_templateName_property_fallback
-        // Убираем префикс "qqcapture_"
         String withoutPrefix = placeholder.substring("qqcapture_".length());
         
-        // Список возможных свойств (property)
         String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants"};
         
         String templateName = null;
         String property = null;
         String fallback = "";
         
-        // Ищем первое совпадение свойства
         for (String prop : properties) {
             int index = withoutPrefix.indexOf(prop);
             if (index > 0) {
                 templateName = withoutPrefix.substring(0, index);
-                property = withoutPrefix.substring(index + 1); // убираем первый _
+                property = withoutPrefix.substring(index + 1);
                 break;
             }
         }
         
-        // Если не нашли свойство - возвращаем как есть
         if (templateName == null || property == null) {
             return placeholder;
         }
         
-        // Проверяем наличие fallback в property
         int fallbackIndex = property.indexOf("_&");
         if (fallbackIndex > 0) {
             fallback = property.substring(fallbackIndex + 2);
             property = property.substring(0, fallbackIndex);
         }
         
-        // Ищем сессию с этим шаблоном
-        // Используем финальную переменную для лямбды
         final String finalTemplateName = templateName;
         CaptureSession session = plugin.getSessionManager().getActiveSessionsMap()
             .values().stream()
@@ -152,13 +140,11 @@ public class PlaceholderManager {
         if (session == null) {
             return fallback.isEmpty() ? "0" : fallback;
         }
-
-        // Обработка top_
+        
         if (property.startsWith("top_")) {
             return parseTopPlaceholder(session, property, fallback);
         }
         
-        // Обработка свойства
         switch (property) {
             case "current":
                 return String.valueOf(session.getCurrentPoints());
@@ -179,11 +165,8 @@ public class PlaceholderManager {
     }
     
     private String parseTopPlaceholder(CaptureSession session, String property, String fallback) {
-        // Формат: top_X_name или top_X_value или top_X_points
-        // Убираем "top_"
         String withoutTop = property.substring("top_".length());
         
-        // Ищем позицию и тип
         String[] parts = withoutTop.split("_", 2);
         if (parts.length < 2) {
             return fallback.isEmpty() ? "0" : fallback;
@@ -193,7 +176,6 @@ public class PlaceholderManager {
             int position = Integer.parseInt(parts[0]);
             String type = parts[1];
             
-            // Get top players
             List<Map.Entry<UUID, PlayerData>> sorted = session.getPlayers().entrySet().stream()
                 .sorted((e1, e2) -> Integer.compare(e2.getValue().getContribution(), e1.getValue().getContribution()))
                 .toList();
@@ -203,14 +185,10 @@ public class PlaceholderManager {
             }
             
             Map.Entry<UUID, PlayerData> entry = sorted.get(position - 1);
-            Player topPlayer = org.bukkit.Bukkit.getPlayer(entry.getKey());
-            
-            if (topPlayer == null) {
-                return fallback.isEmpty() ? "0" : fallback;
-            }
+            OfflinePlayer topPlayer = Bukkit.getOfflinePlayer(entry.getKey());
             
             if (type.equals("name")) {
-                return topPlayer.getName();
+                return topPlayer.getName() != null ? topPlayer.getName() : fallback;
             } else if (type.equals("value") || type.equals("points")) {
                 return String.valueOf(entry.getValue().getContribution());
             }
@@ -223,10 +201,8 @@ public class PlaceholderManager {
     }
     
     private String parseParticipantsPlaceholder(CaptureSession session, String property, String fallback) {
-        // Формат: participants_<separator>
         String separator = property.substring("participants".length());
         
-        // Если separator начинается с "_", убираем его
         if (separator.startsWith("_")) {
             separator = separator.substring(1);
         }
