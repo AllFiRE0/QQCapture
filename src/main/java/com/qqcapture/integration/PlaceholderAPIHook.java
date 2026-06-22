@@ -20,7 +20,7 @@ public class PlaceholderAPIHook {
             plugin.getLogger().info("PlaceholderAPI integration enabled!");
             
             // Register custom placeholders
-            new QQCapturePlaceholders(plugin).register();
+            new QQCapturePlaceholders(plugin).register();  // ← ПРАВИЛЬНО
         } else {
             plugin.getLogger().warning("PlaceholderAPI not found! Custom placeholders disabled.");
         }
