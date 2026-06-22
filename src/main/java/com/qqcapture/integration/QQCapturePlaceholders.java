@@ -4,6 +4,8 @@ import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.PlayerData;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -50,7 +52,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
     public @Nullable List<String> getPlaceholders() {
         List<String> placeholders = new ArrayList<>();
         
-        // Основные заполнители
         placeholders.add("%qqcapture_current%");
         placeholders.add("%qqcapture_max%");
         placeholders.add("%qqcapture_progress%");
@@ -58,35 +59,29 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         placeholders.add("%qqcapture_template%");
         placeholders.add("%qqcapture_time%");
         
-        // Session заполнители
         placeholders.add("%qqcapture_session_contribution%");
         placeholders.add("%qqcapture_session_inzone%");
         placeholders.add("%qqcapture_session_ticks%");
         
-        // Топ заполнители (1-10)
         for (int i = 1; i <= 10; i++) {
             placeholders.add("%qqcapture_top_" + i + "_name%");
             placeholders.add("%qqcapture_top_" + i + "_value%");
             placeholders.add("%qqcapture_top_" + i + "_points%");
             
-            // С fallback
             placeholders.add("%qqcapture_top_" + i + "_name_&6Нет игрока%");
             placeholders.add("%qqcapture_top_" + i + "_value_&c0%");
             placeholders.add("%qqcapture_top_" + i + "_points_&c0%");
         }
         
-        // Участники с разделителями
-        placeholders.add("%qqcapture_participants_ %");      // пробел
-        placeholders.add("%qqcapture_participants_,%");      // запятая
-        placeholders.add("%qqcapture_participants_.%");      // точка
-        placeholders.add("%qqcapture_participants_&e, &f%"); // цветной разделитель
+        placeholders.add("%qqcapture_participants_ %");
+        placeholders.add("%qqcapture_participants_,%");
+        placeholders.add("%qqcapture_participants_.%");
+        placeholders.add("%qqcapture_participants_&e, &f%");
         
-        // Текущие с fallback
         placeholders.add("%qqcapture_current_&c0%");
         placeholders.add("%qqcapture_players_&70%");
         placeholders.add("%qqcapture_progress_&c0.0%");
         
-        // Для каждого шаблона из конфига добавляем специфичные заполнители
         for (String templateName : plugin.getConfigManager().getTemplateNames()) {
             placeholders.add("%qqcapture_" + templateName + "_current%");
             placeholders.add("%qqcapture_" + templateName + "_max%");
@@ -99,7 +94,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
                 placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_value%");
                 placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_points%");
                 
-                // С fallback
                 placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_name_&6Нет игрока%");
                 placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_value_&c0%");
             }
@@ -121,20 +115,17 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             return "";
         }
         
-        // Убираем префикс "qqcapture_"
         String withoutPrefix = identifier;
         if (identifier.startsWith("qqcapture_")) {
             withoutPrefix = identifier.substring("qqcapture_".length());
         }
         
-        // Список возможных свойств
         String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants"};
         
         String templateName = null;
         String property = null;
         String fallback = "";
         
-        // Ищем первое совпадение свойства
         for (String prop : properties) {
             int index = withoutPrefix.indexOf(prop);
             if (index > 0) {
@@ -144,9 +135,7 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             }
         }
         
-        // Если это общий плейсхолдер без шаблона
         if (templateName == null) {
-            // Проверяем, может это общий плейсхолдер (current, max, progress, players, template, time)
             String[] generalProps = {"current", "max", "progress", "players", "template", "time", "session_", "top_", "participants"};
             for (String prop : generalProps) {
                 if (withoutPrefix.startsWith(prop)) {
@@ -156,23 +145,19 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             }
         }
         
-        // Если не нашли свойство - возвращаем fallback
         if (property == null) {
             return handleFallback(withoutPrefix);
         }
         
-        // Проверяем наличие fallback в property
         int fallbackIndex = property.indexOf("_&");
         if (fallbackIndex > 0) {
             fallback = property.substring(fallbackIndex + 2);
             property = property.substring(0, fallbackIndex);
         }
         
-        // Ищем сессию
         CaptureSession targetSession = null;
         
         if (templateName != null) {
-            // Ищем сессию с указанным шаблоном
             for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
                 if (s.getTemplate().getName().equalsIgnoreCase(templateName)) {
                     targetSession = s;
@@ -180,7 +165,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
                 }
             }
         } else {
-            // Берем сессию игрока
             targetSession = plugin.getSessionManager().getPlayerSession(player);
         }
         
@@ -188,7 +172,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             return handleFallback(property);
         }
         
-        // Обработка session_* заполнителей
         if (property.startsWith("session_")) {
             String[] parts = property.split("_", 2);
             if (parts.length == 2) {
@@ -210,7 +193,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             }
         }
         
-        // Основные заполнители
         switch (property) {
             case "current":
                 return String.valueOf(targetSession.getCurrentPoints());
@@ -227,12 +209,10 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
                 return formatTime(elapsed, targetSession.getTemplate().getTimerFormat());
         }
         
-        // Топ заполнители
         if (property.startsWith("top_")) {
             return parseTopPlaceholder(targetSession, property, fallback);
         }
         
-        // Участники
         if (property.startsWith("participants")) {
             return parseParticipantsPlaceholder(targetSession, property, fallback);
         }
@@ -249,7 +229,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
     }
     
     private String parseTopPlaceholder(CaptureSession session, String property, String fallback) {
-        // Формат: top_X_name или top_X_value или top_X_points
         String withoutTop = property.substring("top_".length());
         
         String[] parts = withoutTop.split("_", 2);
@@ -270,14 +249,10 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             }
             
             Map.Entry<UUID, PlayerData> entry = sorted.get(position - 1);
-            Player topPlayer = plugin.getServer().getPlayer(entry.getKey());
-            
-            if (topPlayer == null) {
-                return fallback.isEmpty() ? "0" : fallback;
-            }
+            OfflinePlayer topPlayer = Bukkit.getOfflinePlayer(entry.getKey());
             
             if (type.equals("name")) {
-                return topPlayer.getName();
+                return topPlayer.getName() != null ? topPlayer.getName() : fallback;
             } else if (type.equals("value") || type.equals("points")) {
                 return String.valueOf(entry.getValue().getContribution());
             }
