@@ -25,6 +25,7 @@ public class CaptureSession {
     private long lastCaptureTick;
     private BukkitRunnable bossBarTask;
     private BukkitRunnable captureTask;
+    private BukkitRunnable durationTask;
     
     public CaptureSession(String sessionId, Template template, int targetPoints, boolean silent, Player starter) {
         this.sessionId = sessionId;
@@ -45,6 +46,12 @@ public class CaptureSession {
         
         // Start capture task
         startCaptureTask();
+        
+        // Start duration task if maxDuration is set
+        startDurationTask();
+        
+        // Execute start commands
+        executeStartCommands();
         
         // Initialize region if needed
         if (!template.getRegionName().isEmpty()) {
@@ -83,6 +90,40 @@ public class CaptureSession {
             }
         };
         captureTask.runTaskTimer(QQCapture.getInstance(), 0L, 1L);
+    }
+    
+    private void startDurationTask() {
+        int maxDuration = template.getMaxDuration();
+        if (maxDuration <= 0) {
+            return;
+        }
+        
+        durationTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (stopped || complete) {
+                    this.cancel();
+                    return;
+                }
+                
+                long elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000;
+                if (elapsedSeconds >= maxDuration) {
+                    // Force complete session
+                    complete = true;
+                    List<Player> allPlayers = new ArrayList<>(Bukkit.getOnlinePlayers());
+                    onComplete(allPlayers);
+                }
+            }
+        };
+        durationTask.runTaskTimer(QQCapture.getInstance(), 0L, 20L); // Проверяем каждую секунду
+    }
+    
+    private void executeStartCommands() {
+        List<String> commands = template.getStartCommands();
+        if (commands != null && !commands.isEmpty()) {
+            List<Player> allPlayers = new ArrayList<>(Bukkit.getOnlinePlayers());
+            QQCapture.getInstance().getCommandManager().executeCommands(this, allPlayers);
+        }
     }
     
     private void processCaptureTick() {
@@ -136,7 +177,6 @@ public class CaptureSession {
             double teamMultiplier = template.getTeamMultiplier();
             String teamType = template.getTeamMultiplierType();
             
-            // ИСПРАВЛЕНО: используем английские значения
             if ("individual".equalsIgnoreCase(teamType)) {
                 // Individual team multiplier
                 for (Player player : activePlayers) {
@@ -168,8 +208,9 @@ public class CaptureSession {
         // Update current points
         currentPoints = Math.min(currentPoints + pointsToAdd, targetPoints);
         
-        // Execute commands if tick-command is true
-        if (template.isTickCommand()) {
+        // Execute tick commands
+        List<String> tickCommands = template.getTickCommands();
+        if (tickCommands != null && !tickCommands.isEmpty()) {
             QQCapture.getInstance().getCommandManager().executeCommands(this, activePlayers);
         }
         
@@ -219,8 +260,9 @@ public class CaptureSession {
     }
     
     private void onComplete(List<Player> playersInZone) {
-        // Execute completion commands
-        if (!template.isTickCommand()) {
+        // Execute end commands
+        List<String> endCommands = template.getEndCommands();
+        if (endCommands != null && !endCommands.isEmpty()) {
             QQCapture.getInstance().getCommandManager().executeCommands(this, playersInZone);
         }
         
@@ -240,7 +282,9 @@ public class CaptureSession {
     public void addPlayer(Player player) {
         if (!players.containsKey(player.getUniqueId())) {
             players.put(player.getUniqueId(), new PlayerData(player));
-            QQCapture.getInstance().getBossBarManager().showBossBar(player, this);
+            if (template.isBossBarEnabled()) {
+                QQCapture.getInstance().getBossBarManager().showBossBar(player, this);
+            }
         }
     }
     
@@ -256,6 +300,9 @@ public class CaptureSession {
         }
         if (captureTask != null) {
             captureTask.cancel();
+        }
+        if (durationTask != null) {
+            durationTask.cancel();
         }
     }
     
