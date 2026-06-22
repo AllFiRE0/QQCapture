@@ -85,7 +85,6 @@ public class TemplateConfig {
         // --- BossBar секция ---
         ConfigurationSection bossBarSection = section.getConfigurationSection("bossbar");
         if (bossBarSection != null) {
-            // enabled - новый ключ
             boolean bossBarEnabled = bossBarSection.getBoolean("enabled", true);
             builder.bossBarEnabled(bossBarEnabled);
             
@@ -97,7 +96,6 @@ public class TemplateConfig {
                 builder.bossBarColor("GREEN");
             }
             
-            // update-interval-ticks вместо обновлять-боссбар-каждые-N-тиков
             int updateInterval = bossBarSection.getInt("update-interval-ticks", 20);
             if (updateInterval < 1) {
                 validationWarnings.add("Template '" + name + "': Bossbar update interval too low (" + updateInterval + "), using 1");
@@ -136,16 +134,13 @@ public class TemplateConfig {
             }
             builder.timerFormat(timerFormat);
             
-            // send-on-rejoin вместо отправлять-боссбар-когда-игрок-перезаходит-на-сервер
             boolean sendOnRejoin = bossBarSection.getBoolean("send-on-rejoin", true);
             builder.sendOnRejoin(sendOnRejoin);
             
-            // text вместо текст-боссбара
             String bossBarText = bossBarSection.getString("text", 
                 "Ивент: %current%/%max% (Участников: %players% Групп: %groups%)");
             builder.bossBarText(bossBarText);
         } else {
-            // Default bossbar settings
             builder.bossBarEnabled(true)
                    .bossBarColor("GREEN")
                    .bossBarUpdateTicks(20)
@@ -179,7 +174,6 @@ public class TemplateConfig {
         // --- Player limits ---
         int minPlayers = section.getInt("min-players", -1);
         if (minPlayers < 0) {
-            // Если не указано в шаблоне - берем из defaults
             minPlayers = plugin.getConfigManager().getDefaultMinPlayers();
         }
         if (minPlayers < 0) {
@@ -283,7 +277,21 @@ public class TemplateConfig {
         }
         builder.maxDuration(maxDuration);
         
-        // --- Commands (разделенные на start/tick/end) ---
+        // --- Top storage settings ---
+        boolean topStorageEnabled = section.getBoolean("top-storage-enabled", true);
+        int topStorageDuration = section.getInt("top-storage-duration", 300);
+        boolean topAutoClearOnStart = section.getBoolean("top-auto-clear-on-start", true);
+        
+        if (topStorageDuration < 0) {
+            validationWarnings.add("Template '" + name + "': Top storage duration cannot be negative, using 0 (infinite)");
+            topStorageDuration = 0;
+        }
+        
+        builder.topStorageEnabled(topStorageEnabled)
+               .topStorageDuration(topStorageDuration)
+               .topAutoClearOnStart(topAutoClearOnStart);
+        
+        // --- Commands ---
         List<String> startCommands = section.getStringList("start-commands");
         if (startCommands == null) startCommands = new ArrayList<>();
         List<String> validatedStartCommands = validateCommands(startCommands, name);
@@ -425,7 +433,6 @@ public class TemplateConfig {
             
             String trimmed = command.trim();
             
-            // Специальная обработка для check: формата (поддержка нескольких check:)
             if (trimmed.startsWith("check:")) {
                 List<String> conditions = new ArrayList<>();
                 String remaining = trimmed;
@@ -457,7 +464,6 @@ public class TemplateConfig {
                     continue;
                 }
                 
-                // Проверяем все условия
                 boolean validConditions = true;
                 String[] operators = {">=", "<=", "==", "!=", ">", "<", "!~", "!-", "-!", "~"};
                 for (String condition : conditions) {
@@ -488,7 +494,6 @@ public class TemplateConfig {
                 continue;
             }
             
-            // Обработка обычных команд с префиксом
             if (trimmed.contains("! ")) {
                 int firstExclamation = trimmed.indexOf("! ");
                 String prefix = trimmed.substring(0, firstExclamation).trim();
