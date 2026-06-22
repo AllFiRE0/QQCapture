@@ -68,8 +68,23 @@ public class PlayerListener implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         
-        if (!trackedPlayers.contains(uuid)) {
-            return;
+        // Проверяем только если игрок в зоне или был в зоне
+        if (!trackedPlayers.contains(uuid) && !pendingHidePlayers.contains(uuid)) {
+            // Если игрок не в отслеживаемых и не в очереди на скрытие — проверяем, не зашел ли он в зону
+            boolean inAnyZone = false;
+            for (CaptureSession session : plugin.getSessionManager().getActiveSessions()) {
+                if (session.isStopped() || session.isComplete()) continue;
+                if (session.getTemplate().isInAnyZone(player.getLocation())) {
+                    inAnyZone = true;
+                    break;
+                }
+            }
+            
+            if (!inAnyZone) {
+                return; // Игрок не в зоне и не был в зоне — пропускаем
+            }
+            // Если игрок в зоне — добавляем в отслеживаемые
+            trackedPlayers.add(uuid);
         }
         
         Location from = event.getFrom();
@@ -93,21 +108,22 @@ public class PlayerListener implements Listener {
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("Player " + player.getName() + 
                     " - nowInZone: " + nowInZone + 
-                    ", isInSession: " + isInSession);
+                    ", isInSession: " + isInSession +
+                    ", tracked: " + trackedPlayers.contains(uuid));
             }
             
             if (nowInZone && !isInSession) {
-                // ВОШЕЛ В ЗОНУ
+                // Игрок ВОШЕЛ в зону
                 pendingHidePlayers.remove(uuid);
                 onPlayerEnterZone(player, session);
             } else if (nowInZone && isInSession) {
-                // УЖЕ В ЗОНЕ
+                // Игрок УЖЕ в зоне
                 pendingHidePlayers.remove(uuid);
                 if (template.isBossBarEnabled()) {
                     plugin.getBossBarManager().showBossBar(player, session);
                 }
             } else if (!nowInZone && isInSession) {
-                // ВЫШЕЛ ИЗ ЗОНЫ — НАЧИНАЕМ ОТСЧЕТ 5 СЕКУНД
+                // Игрок ВЫШЕЛ из зоны
                 onPlayerLeaveZone(player, session);
             }
         }
@@ -137,9 +153,11 @@ public class PlayerListener implements Listener {
             return;
         }
         
+        // Добавляем в отслеживаемые
         trackedPlayers.add(player.getUniqueId());
         pendingHidePlayers.remove(player.getUniqueId());
         
+        // Добавляем в сессию
         plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
         
         if (plugin.getConfigManager().isDebug()) {
@@ -216,6 +234,6 @@ public class PlayerListener implements Listener {
                 plugin.getLogger().info("BossBar hidden for player " + player.getName() + 
                     " after 5s delay");
             }
-        }, 100L); // 5 секунд = 100 тиков
+        }, 100L);
     }
 }
