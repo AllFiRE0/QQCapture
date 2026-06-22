@@ -141,9 +141,11 @@ public class PlaceholderManager {
         }
         
         // Ищем сессию с этим шаблоном
+        // Используем финальную переменную для лямбды
+        final String finalTemplateName = templateName;
         CaptureSession session = plugin.getSessionManager().getActiveSessionsMap()
             .values().stream()
-            .filter(s -> s.getTemplate().getName().equalsIgnoreCase(templateName))
+            .filter(s -> s.getTemplate().getName().equalsIgnoreCase(finalTemplateName))
             .findFirst()
             .orElse(null);
         
