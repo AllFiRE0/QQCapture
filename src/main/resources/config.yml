@@ -1,10 +1,10 @@
-# Конфигурация плагина QQCapture
+### Конфигурация плагина QQCapture
 debug: false
 
-# Языковые настройки
+### Языковые настройки
 language: "ru" # ru, en, zh, ko, ja
 
-# Глобальные настройки по умолчанию (применяются если в шаблоне не указано)
+### Глобальные настройки по умолчанию (применяются если в шаблоне не указано)
 defaults:
   tick-capture: 20
   need-amount: 100000
@@ -14,7 +14,7 @@ defaults:
   timer-format: "mm:ss"
   send-on-rejoin: true
 
-# Шаблоны ивентов
+### Шаблоны ивентов
 templates:
   "zona-zahvata":
     bossbar:
@@ -47,16 +47,16 @@ templates:
     region-name: ""
     region-flags: ""
     max-duration: 0
-    # Настройки хранения топов
+    ## Настройки хранения топов
     top-storage-enabled: true
     top-storage-duration: 300
     top-auto-clear-on-start: true
     start-commands:
       - "gMessage! &aИвент захвата зоны начался!"
     tick-commands: []
-      #- "check:%qqcapture_zona-zahvata_current%>=10000! asConsole! eco give %qqcapture_zona-zahvata_top_1_name% 10000"
     end-commands:
       - "gMessage! &aЗона захвачена! Победитель: %qqcapture_zona-zahvata_top_1_name_&6Нет победителя%"
       - "delay! 3"
       - "sound! BLOCK_ANVIL_PLACE 1.0 1.0"
       - "title:30:60:30! {#FFFFFF}Победа\n{#FF0000}Захват завершен!"
+      - "check:%qqcapture_zona-zahvata_current%>=10000! asConsole! eco give %qqcapture_zona-zahvata_top_1_name% 100"
