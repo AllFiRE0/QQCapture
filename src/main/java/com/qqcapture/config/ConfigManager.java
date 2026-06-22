@@ -53,6 +53,9 @@ public class ConfigManager {
         this.debug = config.getBoolean("debug", false);
         this.language = config.getString("language", "ru");
         
+        // Устанавливаем режим отладки в TemplateConfig ДО загрузки шаблонов
+        templateConfig.setDebugMode(this.debug);
+        
         // Загружаем глобальные настройки по умолчанию (если есть)
         loadDefaultSettings();
         
