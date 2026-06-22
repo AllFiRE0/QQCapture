@@ -21,6 +21,7 @@ public class QQCapture extends JavaPlugin {
     private PlaceholderManager placeholderManager;
     private ConditionManager conditionManager;
     private RegionManager regionManager;
+    private TopStorageManager topStorageManager;
     
     // Integrations
     private VaultIntegration vaultIntegration;
@@ -31,19 +32,14 @@ public class QQCapture extends JavaPlugin {
     public void onEnable() {
         instance = this;
         
-        // Save default config
         saveDefaultConfig();
         
-        // Initialize managers
         initializeManagers();
         
-        // Register commands
         getCommand("qqcapture").setExecutor(new QQCaptureCommand());
         
-        // Register listeners
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         
-        // Check dependencies
         checkDependencies();
         
         getLogger().info("QQCapture v" + getDescription().getVersion() + " enabled!");
@@ -59,10 +55,10 @@ public class QQCapture extends JavaPlugin {
         this.placeholderManager = new PlaceholderManager(this);
         this.conditionManager = new ConditionManager(this);
         this.regionManager = new RegionManager(this);
+        this.topStorageManager = new TopStorageManager(this);
     }
     
     private void checkDependencies() {
-        // Check Vault
         if (getServer().getPluginManager().getPlugin("Vault") != null) {
             this.vaultIntegration = new VaultIntegration(this);
             getLogger().info("Vault integration enabled!");
@@ -70,7 +66,6 @@ public class QQCapture extends JavaPlugin {
             getLogger().warning("Vault not found! Economy features will be disabled.");
         }
         
-        // Check WorldGuard
         if (getServer().getPluginManager().getPlugin("WorldGuard") != null) {
             this.worldGuardIntegration = new WorldGuardIntegration(this);
             getLogger().info("WorldGuard integration enabled!");
@@ -78,7 +73,6 @@ public class QQCapture extends JavaPlugin {
             getLogger().warning("WorldGuard not found! Region protection features will be disabled.");
         }
         
-        // Check PlaceholderAPI
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             this.placeholderAPIHook = new PlaceholderAPIHook(this);
             getLogger().info("PlaceholderAPI integration enabled!");
@@ -89,12 +83,10 @@ public class QQCapture extends JavaPlugin {
     
     @Override
     public void onDisable() {
-        // Stop all active sessions
         if (sessionManager != null) {
             sessionManager.stopAllSessions();
         }
         
-        // Clear bossbars
         if (bossBarManager != null) {
             bossBarManager.clearAllBossBars();
         }
@@ -115,6 +107,7 @@ public class QQCapture extends JavaPlugin {
     public PlaceholderManager getPlaceholderManager() { return placeholderManager; }
     public ConditionManager getConditionManager() { return conditionManager; }
     public RegionManager getRegionManager() { return regionManager; }
+    public TopStorageManager getTopStorageManager() { return topStorageManager; }
     public VaultIntegration getVaultIntegration() { return vaultIntegration; }
     public WorldGuardIntegration getWorldGuardIntegration() { return worldGuardIntegration; }
     public PlaceholderAPIHook getPlaceholderAPIHook() { return placeholderAPIHook; }
