@@ -3,6 +3,7 @@ package com.qqcapture.managers;
 import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.PlayerData;
+import com.qqcapture.models.Template;
 import com.qqcapture.utils.ColorUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
