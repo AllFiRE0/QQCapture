@@ -1,62 +1,182 @@
-### Конфигурация плагина QQCapture
-debug: false
+# ================================================================
+#  ОСНОВНЫЕ НАСТРОЙКИ
+# ================================================================
 
-### Языковые настройки
-language: "ru" # ru, en, zh, ko, ja
+# Режим отладки (true - вывод подробных логов)
+debug: true
+# Язык плагина (ru, en, zh, ko, ja)
+language: "ru"
 
-### Глобальные настройки по умолчанию (применяются если в шаблоне не указано)
+# ================================================================
+#  ГЛОБАЛЬНЫЕ НАСТРОЙКИ ПО УМОЛЧАНИЮ
+#  (применяются если в шаблоне не указаны свои значения)
+# ================================================================
 defaults:
+  # Интервал начисления очков в тиках (20 тиков = 1 секунда)
   tick-capture: 20
+  # Количество очков для захвата
   need-amount: 100000
+  # Множитель очков за тик (0.01 = 1% от need-amount)
   multiplier: 0.01
+  # Минимальное количество игроков в зоне
   min-players: 1
+  # Максимальное количество игроков (0 = без ограничений)
   max-players: 5
+  # Формат таймера (HH:mm:ss, mm:ss, HH:mm, ss)
   timer-format: "mm:ss"
+  # Отправлять боссбар при перезаходе игрока
   send-on-rejoin: true
 
-### Шаблоны ивентов
+# ================================================================
+#  ШАБЛОНЫ ИВЕНТОВ
+# ================================================================
+
+# ================================================================
+#  ШАБЛОН 1: Захват территории "zona-zahvata"
+#  Описание: Классический захват зоны с несколькими точками
+# ================================================================
 templates:
   "zona-zahvata":
+    # ---------- НАСТРОЙКИ БОССБАРА ----------
     bossbar:
-      enabled: true
-      color: "GREEN"
-      update-interval-ticks: 20
+      enabled: true                                          # Включить боссбар
+      color: "GREEN"                                          # Цвет (RED, YELLOW, GREEN, BLUE)
+      update-interval-ticks: 20                              # Интервал обновления боссбара
       start-text: "<gradient:#00FF00:#55FF55>Начинаем захват зоны!</gradient>"
       progress-text: "<gradient:#FF0000:#FFAA00>Захват: %current%/%max% (%progress%%%)</gradient>"
       end-text: "<gradient:#FF5555:#FF0000>Захват завершен!</gradient>"
-      segments: 12
-      update-ticks: 5
-      start-delay: 1
-      end-delay: 1
-      timer-format: "mm:ss"
-      send-on-rejoin: true
+      segments: 12                                           # Сегменты (1, 6, 10, 12, 20)
+      update-ticks: 5                                        # Частота обновления
+      start-delay: 1                                         # Задержка старта боссбара (сек)
+      end-delay: 1                                           # Задержка скрытия боссбара (сек)
+      timer-format: "mm:ss"                                  # Формат таймера
+      send-on-rejoin: true                                   # Восстанавливать при перезаходе
       text: "Захват зоны: %current%/%max% (Участников: %players% Групп: %groups%)"
-    condition: ""
-    all-players-condition: ""
-    rules: {}
-    permission: ""
-    min-players: 1
-    max-players: 30
-    need-amount: 10000000
-    tick-capture: 20
-    multiplier: 0.1
-    type-team-multiplier: "individual"
-    team-multiplier: 0.0
-    pos1: "1070,71,-4214"
-    pos2: "1037,62,-4244"
-    region-name: ""
-    region-flags: ""
-    max-duration: 0
-    ## Настройки хранения топов
-    top-storage-enabled: true
-    top-storage-duration: 300
-    top-auto-clear-on-start: true
+    # ---------- УСЛОВИЯ ----------
+    condition: ""                                             # Условие для игроков
+    all-players-condition: ""                                 # Условие для всех игроков
+    rules: {}                                                 # Правила проверок  
+    # ---------- ПРАВА ----------
+    permission: ""                                            # Право для участия 
+    # ---------- ОГРАНИЧЕНИЯ ----------
+    min-players: 1                                            # Минимум игроков
+    max-players: 30                                           # Максимум игроков 
+    # ---------- НАСТРОЙКИ ЗАХВАТА ----------
+    need-amount: 10000000                                     # Целевые очки
+    tick-capture: 20                                          # Интервал начисления (тики)
+    multiplier: 0.1                                           # Множитель очков 
+    # ---------- КОМАНДНЫЙ МНОЖИТЕЛЬ ----------
+    type-team-multiplier: "individual"                       # Тип: individual, shared, disabled
+    team-multiplier: 0.0                                      # Множитель для команды
+    # ================================================================
+    #  ЗОНЫ ЗАХВАТА (можно добавить сколько угодно)
+    #  Игроки в любой из этих зон будут получать очки
+    # ================================================================
+    zones:
+      1:
+        pos1: "1070,71,-4214"
+        pos2: "1037,62,-4244"
+      2:
+        pos1: "1010,71,-4214"
+        pos2: "1050,62,-4244"
+      3:
+        pos1: "500,70,-200"
+        pos2: "600,60,-300" 
+    # ---------- РЕГИОН WORLDGUARD ----------
+    region-name: ""                                           # Название региона
+    region-flags: ""                                          # Флаги региона  
+    # ---------- МАКСИМАЛЬНАЯ ДЛИТЕЛЬНОСТЬ ----------
+    max-duration: 0                                           # 0 = без ограничений (сек)   
+    # ---------- ХРАНЕНИЕ ТОПОВ ----------
+    top-storage-enabled: true                                 # Включить сохранение топов
+    top-storage-duration: 300                                 # Хранить 5 минут (0 = ∞)
+    top-auto-clear-on-start: true                             # Очищать перед новым ивентом   
+    # ---------- КОМАНДЫ ----------
+    # Команды при старте ивента
     start-commands:
       - "gMessage! &aИвент захвата зоны начался!"
-    tick-commands: []
+    # Команды при каждом начислении очков
+    tick-commands:
+      - "check:%qqcapture_zona-zahvata_current%>=100000! asConsole! eco give %qqcapture_zona-zahvata_top_1_name% 10000"
+    # Команды при завершении ивента
     end-commands:
       - "gMessage! &aЗона захвачена! Победитель: %qqcapture_zona-zahvata_top_1_name_&6Нет победителя%"
       - "delay! 3"
       - "sound! BLOCK_ANVIL_PLACE 1.0 1.0"
       - "title:30:60:30! {#FFFFFF}Победа\n{#FF0000}Захват завершен!"
-      - "check:%qqcapture_zona-zahvata_current%>=10000! asConsole! eco give %qqcapture_zona-zahvata_top_1_name% 100"
+
+  # ================================================================
+  #  ШАБЛОН 2: Королевская битва "king-of-the-hill"
+  #  Описание: Захват точки, где нужно удерживать зону дольше всех
+  #  Отличается от первого шаблона настройками и командами
+  # ================================================================
+  "king-of-the-hill":
+    # ---------- НАСТРОЙКИ БОССБАРА ----------
+    bossbar:
+      enabled: true
+      color: "RED"
+      update-interval-ticks: 10
+      start-text: "<gradient:#FFAA00:#FF5500>Королевская битва началась!</gradient>"
+      progress-text: "<gradient:#FF5500:#FF0000>Удержание: %current%/%max% (%progress%%%)</gradient>"
+      end-text: "<gradient:#FF0000:#AA0000>Король определен!</gradient>"
+      segments: 20
+      update-ticks: 3
+      start-delay: 5
+      end-delay: 2
+      timer-format: "mm:ss"
+      send-on-rejoin: true
+      text: "Королевская битва: %current%/%max% (Игроков: %players%)"
+    # ---------- УСЛОВИЯ ----------
+    condition: "%player_level%>=10"                           # Только игроки с 10+ уровнем
+    all-players-condition: ""                                 
+    rules: {}
+    # ---------- ПРАВА ----------
+    permission: "qqcapture.king.participate"
+    # ---------- ОГРАНИЧЕНИЯ ----------
+    min-players: 2                                            # Нужно минимум 2 игрока
+    max-players: 16                                           # Максимум 16 игроков
+    # ---------- НАСТРОЙКИ ЗАХВАТА ----------
+    need-amount: 5000                                         # Меньше очков, быстрее битва
+    tick-capture: 10                                          # Быстрее начисление
+    multiplier: 1.0                                           # Больше очков за тик
+    # ---------- КОМАНДНЫЙ МНОЖИТЕЛЬ ----------
+    type-team-multiplier: "shared"                            # Бонус распределяется на всех
+    team-multiplier: 0.5                                      # 50% бонус к общим очкам
+    # ================================================================
+    #  ЗОНЫ ЗАХВАТА (одна большая зона для битвы)
+    # ================================================================
+    zones:
+      1:
+        pos1: "100,70,100"
+        pos2: "-100,62,-100"
+    # ---------- РЕГИОН WORLDGUARD ----------
+    region-name: "king_arena"
+    region-flags: "{pvp: allow, block-break: deny, block-place: deny}"
+    # ---------- МАКСИМАЛЬНАЯ ДЛИТЕЛЬНОСТЬ ----------
+    max-duration: 300                                         # 5 минут (300 секунд)
+    # ---------- ХРАНЕНИЕ ТОПОВ ----------
+    top-storage-enabled: true
+    top-storage-duration: 600                                 # Хранить 10 минут
+    top-auto-clear-on-start: true
+    # ---------- КОМАНДЫ ----------
+    # Команды при старте ивента
+    start-commands:
+      - "gMessage! &6Королевская битва началась! Займите точку!"
+      - "sound! BLOCK_NOTE_BLOCK_PLING 1.0 1.0"
+      - "title:20:40:20! &6Королевская битва\n&fУдерживайте зону!"
+    # Команды при каждом начислении очков
+    tick-commands:
+      - "check:%qqcapture_king-of-the-hill_current%>=1000! gMessage! &eУже 1000 очков!"
+      - "check:%qqcapture_king-of-the-hill_current%>=2500! gMessage! &eУже 2500 очков!"
+      - "check:%qqcapture_king-of-the-hill_current%>=4000! gMessage! &eУже 4000 очков!"
+    # Команды при завершении ивента
+    end-commands:
+      - "gMessage! &6Король определен! Победитель: %qqcapture_king-of-the-hill_top_1_name_&7Никто%"
+      - "gMessage! &6Очков: %qqcapture_king-of-the-hill_top_1_value_&c0%"
+      - "delay! 2"
+      - "asConsole! cmi title %qqcapture_king-of-the-hill_top_1_name% &6Король!"
+      - "sound! ENTITY_PLAYER_LEVELUP 2.0 1.0"
+      - "gSound! ENTITY_PLAYER_LEVELUP 2.0 1.0"
+      - "title:40:60:40! {#FFAA00}Королевская битва\n{#FF0000}Победитель: %qqcapture_king-of-the-hill_top_1_name_&7Никто%"
+      - "delay! 5"
+      - "asConsole! qqcapture top reset king-of-the-hill clear -s"
