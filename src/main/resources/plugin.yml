@@ -1,0 +1,25 @@
+name: QQCapture
+version: 1.0.0
+main: com.qqcapture.QQCapture
+api-version: 1.21
+author: YourName
+description: Advanced capture zone plugin with multiple templates
+depend: [WorldGuard]
+softdepend: [Vault, PlaceholderAPI]
+
+commands:
+  qqcapture:
+    description: Main command for QQCapture plugin
+    usage: /<command> <template> <points> [-s]
+    permission: qqcapture.admin
+    aliases: [qqc]
+
+permissions:
+  qqcapture.admin:
+    description: Allows use of all admin commands
+    default: op
+  qqcapture.*:
+    description: All permissions
+    default: op
+    children:
+      qqcapture.admin: true
