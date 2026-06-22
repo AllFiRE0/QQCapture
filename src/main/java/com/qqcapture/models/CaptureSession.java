@@ -129,9 +129,17 @@ public class CaptureSession {
     private void processCaptureTick() {
         // Get players in zone
         List<Player> playersInZone = getPlayersInZone();
-        
+
+        // Debug
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("processCaptureTick: " + playersInZone.size() + " players in zone");
+        }
+    
         // Check minimum players
         if (playersInZone.size() < template.getMinPlayers()) {
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Not enough players: " + playersInZone.size() + " < " + template.getMinPlayers());
+            }
             return;
         }
         
@@ -284,6 +292,9 @@ public class CaptureSession {
             players.put(player.getUniqueId(), new PlayerData(player));
             if (template.isBossBarEnabled()) {
                 QQCapture.getInstance().getBossBarManager().showBossBar(player, this);
+            }
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Player " + player.getName() + " added to session with bossbar: " + template.isBossBarEnabled());
             }
         }
     }
