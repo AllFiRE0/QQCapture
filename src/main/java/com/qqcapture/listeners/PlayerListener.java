@@ -27,7 +27,6 @@ public class PlayerListener implements Listener {
             if (template.isBossBarEnabled() && template.isSendOnRejoin()) {
                 if (isPlayerInZone(player, session)) {
                     plugin.getBossBarManager().showBossBar(player, session);
-                    // Добавляем игрока в сессию при перезаходе, если он в зоне
                     if (!session.getPlayers().containsKey(player.getUniqueId())) {
                         plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
                     }
@@ -63,18 +62,16 @@ public class PlayerListener implements Listener {
                 continue;
             }
             
-            boolean wasInZone = session.getPlayers().containsKey(player.getUniqueId());
             boolean nowInZone = isPlayerInZone(player, session);
+            boolean isInSession = session.getPlayers().containsKey(player.getUniqueId());
             
             if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Player " + player.getName() + " - wasInZone: " + wasInZone + ", nowInZone: " + nowInZone);
+                plugin.getLogger().info("Player " + player.getName() + " - nowInZone: " + nowInZone + ", isInSession: " + isInSession);
             }
             
             if (nowInZone && !isInSession) {
                 onPlayerEnterZone(player, session);
-            } 
-            // ЕСЛИ НЕ В ЗОНЕ, НО В СЕССИИ -> УБРАТЬ
-            else if (!nowInZone && isInSession) {
+            } else if (!nowInZone && isInSession) {
                 onPlayerLeaveZone(player, session);
             }
         }
@@ -88,7 +85,6 @@ public class PlayerListener implements Listener {
             return;
         }
         
-        // Проверяем, не добавлен ли уже игрок
         if (session.getPlayers().containsKey(player.getUniqueId())) {
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("Player " + player.getName() + " already in session " + session.getSessionId());
@@ -102,7 +98,6 @@ public class PlayerListener implements Listener {
             plugin.getLogger().info("Player " + player.getName() + " entered zone for session " + session.getSessionId());
         }
         
-        // Check permission
         if (!template.getPermission().isEmpty() && !player.hasPermission(template.getPermission())) {
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("Player " + player.getName() + " doesn't have permission: " + template.getPermission());
@@ -110,7 +105,6 @@ public class PlayerListener implements Listener {
             return;
         }
         
-        // Check player conditions
         if (!plugin.getConditionManager().checkPlayerConditions(player, template)) {
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("Player " + player.getName() + " doesn't meet conditions");
@@ -118,7 +112,6 @@ public class PlayerListener implements Listener {
             return;
         }
         
-        // Add player to session
         plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
         
         if (plugin.getConfigManager().isDebug()) {
@@ -131,7 +124,6 @@ public class PlayerListener implements Listener {
             return;
         }
         
-        // Проверяем, есть ли игрок в сессии
         if (!session.getPlayers().containsKey(player.getUniqueId())) {
             if (plugin.getConfigManager().isDebug()) {
                 plugin.getLogger().info("Player " + player.getName() + " not in session " + session.getSessionId());
@@ -169,12 +161,10 @@ public class PlayerListener implements Listener {
                 pos2.getBlockX() + "," + pos2.getBlockY() + "," + pos2.getBlockZ());
         }
         
-        // Check WorldGuard region first
         if (!template.getRegionName().isEmpty()) {
             return plugin.getRegionManager().isPlayerInRegion(loc, template.getRegionName());
         }
         
-        // Check cuboid area
         double minX = Math.min(pos1.getX(), pos2.getX());
         double maxX = Math.max(pos1.getX(), pos2.getX());
         double minY = Math.min(pos1.getY(), pos2.getY());
