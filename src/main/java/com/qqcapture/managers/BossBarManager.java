@@ -27,7 +27,6 @@ public class BossBarManager {
     }
     
     public void showBossBar(Player player, CaptureSession session) {
-        // Проверяем, включен ли боссбар в шаблоне
         if (!session.getTemplate().isBossBarEnabled()) {
             return;
         }
@@ -38,10 +37,17 @@ public class BossBarManager {
         if (bossBar == null) {
             bossBar = createBossBar(session);
             activeBossBars.put(sessionId, bossBar);
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("BossBar created for session " + sessionId);
+            }
         }
         
         bossBar.addPlayer(player);
         playerBossBars.put(player.getUniqueId(), sessionId);
+        
+        if (plugin.getConfigManager().isDebug()) {
+            plugin.getLogger().info("BossBar shown to player " + player.getName() + " for session " + sessionId);
+        }
     }
     
     public void hideBossBar(Player player, CaptureSession session) {
@@ -51,12 +57,19 @@ public class BossBarManager {
         if (bossBar != null) {
             bossBar.removePlayer(player);
             playerBossBars.remove(player.getUniqueId());
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("BossBar hidden for player " + player.getName() + " from session " + sessionId);
+            }
         }
     }
     
     public void updateBossBar(CaptureSession session) {
-        // Проверяем, включен ли боссбар в шаблоне
         if (!session.getTemplate().isBossBarEnabled()) {
+            return;
+        }
+        
+        // Если нет игроков - не обновляем
+        if (session.getPlayers().isEmpty()) {
             return;
         }
         
@@ -106,7 +119,6 @@ public class BossBarManager {
                 BarStyle.SEGMENTED_12
             );
         
-            // Set segments
             int segments = template.getSegments();
             bossBar.setStyle(getBarStyle(segments));
         
@@ -143,34 +155,26 @@ public class BossBarManager {
     private String applyPlaceholders(String text, CaptureSession session, Player player) {
         Template template = session.getTemplate();
         
-        // Current points
         text = text.replace("%current%", String.valueOf(session.getCurrentPoints()));
         text = text.replace("%max%", String.valueOf(session.getTargetPoints()));
         text = text.replace("%progress%", String.format("%.1f", 
             (double) session.getCurrentPoints() / session.getTargetPoints() * 100));
         
-        // Players count
         int playerCount = session.getPlayers().size();
         text = text.replace("%players%", String.valueOf(playerCount));
         
-        // Groups count
-        int groups = playerCount > 0 ? 1 : 0; // Simplified
+        int groups = playerCount > 0 ? 1 : 0;
         text = text.replace("%groups%", String.valueOf(groups));
         
-        // Time
         long elapsed = System.currentTimeMillis() - session.getStartTime();
         text = text.replace("%time%", TimerUtils.formatTime(elapsed, template.getTimerFormat()));
         
-        // Template name
         text = text.replace("%template%", template.getName());
         
-        // Player specific placeholders
         if (player != null) {
             text = text.replace("%player%", player.getName());
-            // Add more player-specific placeholders
         }
         
-        // Process custom placeholders through PlaceholderAPI if available
         if (plugin.getPlaceholderAPIHook() != null && player != null) {
             text = plugin.getPlaceholderAPIHook().parsePlaceholders(player, text);
         }
@@ -182,6 +186,9 @@ public class BossBarManager {
         BossBar bossBar = activeBossBars.remove(sessionId);
         if (bossBar != null) {
             bossBar.removeAll();
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("BossBar removed for session " + sessionId);
+            }
         }
     }
     
