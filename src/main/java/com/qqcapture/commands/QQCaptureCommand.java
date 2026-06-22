@@ -1,7 +1,7 @@
 package com.qqcapture.commands;
 
 import com.qqcapture.QQCapture;
-import com.qqcapture.models.CaptureSession;  // ← ДОБАВЛЕН ИМПОРТ
+import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.Template;
 import com.qqcapture.utils.ColorUtils;
 import org.bukkit.command.Command;
@@ -12,7 +12,9 @@ import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class QQCaptureCommand implements CommandExecutor, TabCompleter {
     private final QQCapture plugin;
@@ -84,17 +86,22 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         
-        if (args.length < 3) {
-            sender.sendMessage(ColorUtils.colorize(
-                plugin.getLanguageManager().getMessage("command-usage-start")
-            ));
+        if (args.length < 2) {
+            sender.sendMessage(ColorUtils.colorize("&cUsage: /qqcapture start <template> [-p:points] [-d:duration] [-r:region] [-s]"));
             return true;
         }
         
         String templateName = args[1];
-        String pointsStr = args[2];
-        boolean silent = args.length > 3 && args[3].equalsIgnoreCase("-s");
         
+        // Парсим параметры
+        Map<String, String> params = parseParams(args);
+        
+        boolean silent = params.containsKey("s");
+        String pointsStr = params.get("p");
+        String durationStr = params.get("d");
+        String regionName = params.get("r");
+        
+        // Validate template
         if (!plugin.getConfigManager().templateExists(templateName)) {
             sender.sendMessage(ColorUtils.colorize(
                 plugin.getLanguageManager().getMessage("template-not-found")
@@ -103,20 +110,47 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         
-        int points;
-        try {
-            points = Integer.parseInt(pointsStr);
-            if (points <= 0) {
-                sender.sendMessage(ColorUtils.colorize("&cPoints must be greater than 0!"));
+        Template template = plugin.getConfigManager().getTemplate(templateName);
+        int points = template.getNeedAmount();
+        int duration = template.getMaxDuration();
+        String finalRegionName = template.getRegionName();
+        
+        // Переопределяем параметры если указаны в команде
+        if (pointsStr != null) {
+            try {
+                points = Integer.parseInt(pointsStr);
+                if (points <= 0) {
+                    sender.sendMessage(ColorUtils.colorize("&cPoints must be greater than 0!"));
+                    return true;
+                }
+            } catch (NumberFormatException e) {
+                sender.sendMessage(ColorUtils.colorize("&cInvalid points number: " + pointsStr));
                 return true;
             }
-        } catch (NumberFormatException e) {
-            sender.sendMessage(ColorUtils.colorize("&cInvalid points number!"));
-            return true;
         }
         
+        if (durationStr != null) {
+            try {
+                duration = Integer.parseInt(durationStr);
+                if (duration < 0) {
+                    sender.sendMessage(ColorUtils.colorize("&cDuration cannot be negative!"));
+                    return true;
+                }
+            } catch (NumberFormatException e) {
+                sender.sendMessage(ColorUtils.colorize("&cInvalid duration: " + durationStr));
+                return true;
+            }
+        }
+        
+        if (regionName != null && !regionName.isEmpty()) {
+            finalRegionName = regionName;
+        }
+        
+        // Создаем копию шаблона с переопределенными параметрами
+        Template finalTemplate = createOverriddenTemplate(template, points, duration, finalRegionName);
+        
         Player starter = sender instanceof Player ? (Player) sender : null;
-        boolean started = plugin.getSessionManager().startSession(templateName, points, silent, starter);
+        boolean started = plugin.getSessionManager().startSession(finalTemplate, silent, starter);
         
         if (started) {
             if (!silent) {
@@ -125,7 +159,8 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                         .replace("%template%", templateName)
                 ));
             }
-            plugin.getLogger().info("Session started: " + templateName + " with " + points + " points by " + sender.getName());
+            plugin.getLogger().info("Session started: " + templateName + " with " + points + " points, duration: " + 
+                (duration > 0 ? duration + "s" : "∞") + " by " + sender.getName());
         } else {
             sender.sendMessage(ColorUtils.colorize("&cFailed to start session! Check console for errors."));
         }
@@ -133,7 +168,67 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         return true;
     }
     
-    // ИСПРАВЛЕННЫЙ МЕТОД handleStop
+    private Map<String, String> parseParams(String[] args) {
+        Map<String, String> params = new HashMap<>();
+        
+        for (int i = 2; i < args.length; i++) {
+            String arg = args[i];
+            
+            if (arg.equalsIgnoreCase("-s")) {
+                params.put("s", "true");
+            } else if (arg.startsWith("-p:")) {
+                params.put("p", arg.substring(3));
+            } else if (arg.startsWith("-d:")) {
+                params.put("d", arg.substring(3));
+            } else if (arg.startsWith("-r:")) {
+                params.put("r", arg.substring(3));
+            }
+        }
+        
+        return params;
+    }
+    
+    private Template createOverriddenTemplate(Template original, int points, int duration, String regionName) {
+        // Создаем новый шаблон на основе оригинального с переопределенными параметрами
+        Template.Builder builder = new Template.Builder(original.getName() + "_override");
+        
+        // Копируем все настройки из оригинального шаблона
+        builder.bossBarEnabled(original.isBossBarEnabled())
+               .bossBarColor(original.getBossBarColor())
+               .bossBarUpdateTicks(original.getBossBarUpdateTicks())
+               .startText(original.getStartText())
+               .progressText(original.getProgressText())
+               .endText(original.getEndText())
+               .segments(original.getSegments())
+               .updateTicks(original.getUpdateTicks())
+               .startDelay(original.getStartDelay())
+               .endDelay(original.getEndDelay())
+               .timerFormat(original.getTimerFormat())
+               .sendOnRejoin(original.isSendOnRejoin())
+               .bossBarText(original.getBossBarText())
+               .condition(original.getCondition())
+               .allPlayersCondition(original.getAllPlayersCondition())
+               .rules(original.getRules())
+               .permission(original.getPermission())
+               .minPlayers(original.getMinPlayers())
+               .maxPlayers(original.getMaxPlayers())
+               .needAmount(points)  // Переопределяем
+               .tickCapture(original.getTickCapture())
+               .multiplier(original.getMultiplier())
+               .teamMultiplierType(original.getTeamMultiplierType())
+               .teamMultiplier(original.getTeamMultiplier())
+               .pos1(original.getPos1())
+               .pos2(original.getPos2())
+               .regionName(regionName)  // Переопределяем
+               .regionFlags(original.getRegionFlags())
+               .maxDuration(duration)  // Переопределяем
+               .startCommands(original.getStartCommands())
+               .tickCommands(original.getTickCommands())
+               .endCommands(original.getEndCommands());
+        
+        return builder.build();
+    }
+    
     private boolean handleStop(CommandSender sender, String[] args) {
         if (!sender.hasPermission("qqcapture.admin.stop")) {
             sender.sendMessage(ColorUtils.colorize(
@@ -149,10 +244,10 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         
         String templateName = args[1];
         
-        // Ищем сессию по имени шаблона
         CaptureSession session = null;
         for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
-            if (s.getTemplate().getName().equalsIgnoreCase(templateName)) {
+            if (s.getTemplate().getName().equalsIgnoreCase(templateName) ||
+                s.getTemplate().getName().equalsIgnoreCase(templateName + "_override")) {
                 session = s;
                 break;
             }
@@ -189,11 +284,14 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         for (var session : sessions) {
             String progress = String.format("%.1f", 
                 (double) session.getCurrentPoints() / session.getTargetPoints() * 100);
+            String duration = session.getTemplate().getMaxDuration() > 0 ? 
+                session.getTemplate().getMaxDuration() + "s" : "∞";
             sender.sendMessage(ColorUtils.colorize(
                 "&e" + session.getSessionId() + 
                 " &7- &f" + session.getTemplate().getName() +
                 " &7- &f" + session.getPlayers().size() + " players" +
-                " &7- &f" + progress + "%"
+                " &7- &f" + progress + "%" +
+                " &7- &f" + duration
             ));
         }
         
@@ -231,11 +329,10 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ColorUtils.colorize("&eMultiplier: &f" + template.getMultiplier()));
         sender.sendMessage(ColorUtils.colorize("&eTeam multiplier: &f" + template.getTeamMultiplier()));
         sender.sendMessage(ColorUtils.colorize("&eRegion: &f" + (template.isRegionEnabled() ? template.getRegionName() : "None")));
-        // ИСПРАВЛЕНО: показываем количество команд
+        sender.sendMessage(ColorUtils.colorize("&eMax duration: &f" + (template.getMaxDuration() > 0 ? template.getMaxDuration() + "s" : "∞")));
         sender.sendMessage(ColorUtils.colorize("&eStart commands: &f" + template.getStartCommands().size()));
         sender.sendMessage(ColorUtils.colorize("&eTick commands: &f" + template.getTickCommands().size()));
         sender.sendMessage(ColorUtils.colorize("&eEnd commands: &f" + template.getEndCommands().size()));
-        sender.sendMessage(ColorUtils.colorize("&eMax duration: &f" + (template.getMaxDuration() > 0 ? template.getMaxDuration() + "s" : "∞")));
         
         return true;
     }
@@ -243,7 +340,7 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(ColorUtils.colorize("&6=== QQCapture Commands ==="));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture reload &7- Reload config and languages"));
-        sender.sendMessage(ColorUtils.colorize("&e/qqcapture start <template> <points> [-s] &7- Start an event"));
+        sender.sendMessage(ColorUtils.colorize("&e/qqcapture start <template> [-p:points] [-d:duration] [-r:region] [-s] &7- Start an event"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture stop <template> &7- Stop a session by template name"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture list &7- List active sessions"));
         sender.sendMessage(ColorUtils.colorize("&e/qqcapture info <template> &7- Show template info"));
@@ -261,30 +358,22 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
                 }
             }
         } else if (args.length == 2) {
-            String subCommand = args[0].toLowerCase();
-            if (subCommand.equals("start") || subCommand.equals("info")) {
-                for (String templateName : plugin.getConfigManager().getTemplateNames()) {
-                    if (templateName.toLowerCase().startsWith(args[1].toLowerCase())) {
-                        completions.add(templateName);
-                    }
-                }
-            } else if (subCommand.equals("stop")) {
+            if (args[0].equalsIgnoreCase("start") || args[0].equalsIgnoreCase("info") || args[0].equalsIgnoreCase("stop")) {
                 for (String templateName : plugin.getConfigManager().getTemplateNames()) {
                     if (templateName.toLowerCase().startsWith(args[1].toLowerCase())) {
                         completions.add(templateName);
                     }
                 }
             }
-        } else if (args.length == 3) {
+        } else if (args.length >= 3) {
             if (args[0].equalsIgnoreCase("start")) {
-                completions.add("1000");
-                completions.add("10000");
-                completions.add("100000");
-                completions.add("1000000");
-            }
-        } else if (args.length == 4) {
-            if (args[0].equalsIgnoreCase("start") && "-s".startsWith(args[3].toLowerCase())) {
-                completions.add("-s");
+                String lastArg = args[args.length - 1];
+                String[] options = {"-p:", "-d:", "-r:", "-s"};
+                for (String option : options) {
+                    if (option.startsWith(lastArg.toLowerCase())) {
+                        completions.add(option);
+                    }
+                }
             }
         }
         
