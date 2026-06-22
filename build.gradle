@@ -44,8 +44,8 @@ dependencies {
     // Vault
     compileOnly 'net.milkbowl.vault:VaultAPI:1.7'
     
-    // PlaceholderAPI
-    compileOnly 'me.clip:placeholderapi:2.11.3'
+    // PlaceholderAPI - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    compileOnly 'me.clip:placeholderapi:2.11.4'  // ← ИЗМЕНЕНО С 2.11.3 НА 2.11.4
     
     // SnakeYAML для работы с YAML
     implementation 'org.yaml:snakeyaml:2.2'
