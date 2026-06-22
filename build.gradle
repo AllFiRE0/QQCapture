@@ -31,6 +31,10 @@ repositories {
         name = 'sonatype'
         url = 'https://oss.sonatype.org/content/groups/public/'
     }
+    maven {
+        name = 'codemc'
+        url = 'https://repo.codemc.io/repository/maven-public/'
+    }
 }
 
 dependencies {
@@ -44,8 +48,8 @@ dependencies {
     // Vault
     compileOnly 'net.milkbowl.vault:VaultAPI:1.7'
     
-    // PlaceholderAPI - ИСПРАВЛЕННАЯ ВЕРСИЯ
-    compileOnly 'me.clip:placeholderapi:2.11.4'  // ← ИЗМЕНЕНО С 2.11.3 НА 2.11.4
+    // PlaceholderAPI - БЕЗ УКАЗАНИЯ ВЕРСИИ
+    compileOnly 'me.clip:placeholderapi'  // ← ИЗМЕНЕНО - БЕЗ ВЕРСИИ
     
     // SnakeYAML для работы с YAML
     implementation 'org.yaml:snakeyaml:2.2'
