@@ -191,7 +191,7 @@ public class Template {
         private int needAmount = 100000;
         private int tickCapture = 120;
         private double multiplier = 0.00001;
-        private String teamMultiplierType = "индивидуально";
+        private String teamMultiplierType = "individual";
         private double teamMultiplier = 0.0;
         private Location pos1 = new Location(null, 0, 0, 0);
         private Location pos2 = new Location(null, 0, -1, 0);
