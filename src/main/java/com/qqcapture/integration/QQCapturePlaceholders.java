@@ -65,6 +65,10 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         placeholders.add("%qqcapture_session_inzone%");
         placeholders.add("%qqcapture_session_ticks%");
         
+        // ===== НОВЫЕ ЗАПОЛНИТЕЛИ =====
+        placeholders.add("%qqcapture_player_template%");
+        placeholders.add("%qqcapture_player_template_&7Не в ивенте%");
+        
         for (int i = 1; i <= 10; i++) {
             placeholders.add("%qqcapture_top_" + i + "_name%");
             placeholders.add("%qqcapture_top_" + i + "_value%");
@@ -90,6 +94,10 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             placeholders.add("%qqcapture_" + templateName + "_progress%");
             placeholders.add("%qqcapture_" + templateName + "_players%");
             placeholders.add("%qqcapture_" + templateName + "_time%");
+            
+            // ===== НОВЫЙ ЗАПОЛНИТЕЛЬ: active для каждого шаблона =====
+            placeholders.add("%qqcapture_" + templateName + "_active%");
+            placeholders.add("%qqcapture_" + templateName + "_active_&cНЕТ%");
             
             for (int i = 1; i <= 10; i++) {
                 placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_name%");
@@ -120,6 +128,38 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         String withoutPrefix = identifier;
         if (identifier.startsWith("qqcapture_")) {
             withoutPrefix = identifier.substring("qqcapture_".length());
+        }
+        
+        // ===== НОВЫЙ ЗАПОЛНИТЕЛЬ: player_template =====
+        if (withoutPrefix.startsWith("player_template")) {
+            String fallback = "Не в ивенте";
+            String rest = withoutPrefix.substring("player_template".length());
+            if (rest.startsWith("_&")) {
+                fallback = rest.substring(2);
+            }
+            CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
+            if (session != null) {
+                return session.getTemplate().getName();
+            }
+            return fallback;
+        }
+        
+        // ===== НОВЫЙ ЗАПОЛНИТЕЛЬ: active =====
+        if (withoutPrefix.endsWith("_active")) {
+            String templateName = withoutPrefix.substring(0, withoutPrefix.length() - 7);
+            String fallback = "no";
+            int fallbackIndex = templateName.lastIndexOf("_&");
+            if (fallbackIndex > 0) {
+                fallback = templateName.substring(fallbackIndex + 2);
+                templateName = templateName.substring(0, fallbackIndex);
+            }
+            
+            for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
+                if (s.getTemplate().getName().equalsIgnoreCase(templateName)) {
+                    return "yes";
+                }
+            }
+            return fallback;
         }
         
         String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants"};
@@ -253,7 +293,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
     }
     
     private String parseTopPlaceholder(String templateName, CaptureSession session, String property, String fallback) {
-        // ===== ПРОВЕРЯЕМ ХРАНИЛИЩЕ =====
         TopStorageManager storage = plugin.getTopStorageManager();
         List<TopStorageManager.TopEntry> entries = storage.getTop(templateName);
         
@@ -266,7 +305,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             int position = Integer.parseInt(parts[1]);
             String type = parts[2];
             
-            // === СНАЧАЛА ИЗ ФАЙЛА ===
             if (!entries.isEmpty() && position <= entries.size()) {
                 TopStorageManager.TopEntry entry = entries.get(position - 1);
                 if (type.equals("name")) {
@@ -276,7 +314,6 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
                 }
             }
             
-            // === ЕСЛИ НЕТ В ФАЙЛЕ — ИЗ АКТИВНОЙ СЕССИИ ===
             if (session != null && !session.getPlayers().isEmpty()) {
                 List<Map.Entry<UUID, PlayerData>> sorted = session.getPlayers().entrySet().stream()
                     .sorted((e1, e2) -> Integer.compare(e2.getValue().getContribution(), e1.getValue().getContribution()))
