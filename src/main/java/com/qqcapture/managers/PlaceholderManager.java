@@ -106,6 +106,42 @@ public class PlaceholderManager {
     private String parseQQCapturePlaceholder(Player player, String placeholder) {
         String withoutPrefix = placeholder.substring("qqcapture_".length());
         
+        // ===== НОВЫЙ ЗАПОЛНИТЕЛЬ: player_template =====
+        if (withoutPrefix.startsWith("player_template")) {
+            String fallback = "Не в ивенте";
+            String rest = withoutPrefix.substring("player_template".length());
+            if (rest.startsWith("_&")) {
+                fallback = rest.substring(2);
+            }
+            if (player == null) {
+                return fallback;
+            }
+            CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
+            if (session != null) {
+                return session.getTemplate().getName();
+            }
+            return fallback;
+        }
+        
+        // ===== НОВЫЙ ЗАПОЛНИТЕЛЬ: active =====
+        if (withoutPrefix.endsWith("_active")) {
+            String templateName = withoutPrefix.substring(0, withoutPrefix.length() - 7);
+            String fallback = "no";
+            int fallbackIndex = templateName.lastIndexOf("_&");
+            if (fallbackIndex > 0) {
+                fallback = templateName.substring(fallbackIndex + 2);
+                templateName = templateName.substring(0, fallbackIndex);
+            }
+            
+            for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
+                String name = s.getTemplate().getName();
+                if (name.equalsIgnoreCase(templateName)) {
+                    return "yes";
+                }
+            }
+            return fallback;
+        }
+        
         String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants"};
         
         String templateName = null;
@@ -187,10 +223,8 @@ public class PlaceholderManager {
     }
     
     private String parseTopPlaceholder(String templateName, CaptureSession session, String property, String fallback) {
-        // ===== ПРОВЕРЯЕМ ХРАНИЛИЩЕ =====
         TopStorageManager storage = plugin.getTopStorageManager();
         
-        // ===== ИСПРАВЛЕНО: убираем _override при поиске в файле =====
         String cleanTemplateName = templateName;
         if (cleanTemplateName.endsWith("_override")) {
             cleanTemplateName = cleanTemplateName.substring(0, cleanTemplateName.length() - 9);
@@ -207,7 +241,6 @@ public class PlaceholderManager {
             int position = Integer.parseInt(parts[1]);
             String type = parts[2];
             
-            // === СНАЧАЛА ИЗ ФАЙЛА ===
             if (!entries.isEmpty() && position <= entries.size()) {
                 TopStorageManager.TopEntry entry = entries.get(position - 1);
                 if (type.equals("name")) {
@@ -217,7 +250,6 @@ public class PlaceholderManager {
                 }
             }
             
-            // === ЕСЛИ НЕТ В ФАЙЛЕ — ИЗ АКТИВНОЙ СЕССИИ ===
             if (session != null && !session.getPlayers().isEmpty()) {
                 List<Map.Entry<UUID, PlayerData>> sorted = session.getPlayers().entrySet().stream()
                     .sorted((e1, e2) -> Integer.compare(e2.getValue().getContribution(), e1.getValue().getContribution()))
@@ -240,7 +272,6 @@ public class PlaceholderManager {
             }
         }
         
-        // ===== ВОЗВРАЩАЕМ FALLBACK =====
         return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
     }
     
