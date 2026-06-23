@@ -4,6 +4,7 @@ import com.qqcapture.QQCapture;
 import com.qqcapture.utils.ColorUtils;
 import com.qqcapture.managers.TopStorageManager;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
