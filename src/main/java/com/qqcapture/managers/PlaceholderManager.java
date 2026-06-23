@@ -137,8 +137,6 @@ public class PlaceholderManager {
             .filter(s -> s.getTemplate().getName().equalsIgnoreCase(finalTemplateName))
             .findFirst()
             .orElse(null);
-                .findFirst()
-                .orElse(null);
         
         if (property.startsWith("top_")) {
             return parseTopPlaceholder(finalTemplateName, session, property, fallback);
