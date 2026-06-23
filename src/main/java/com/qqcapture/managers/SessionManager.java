@@ -31,27 +31,23 @@ public class SessionManager {
         if (template == null) {
             return false;
         }
-        
-        // Проверяем, есть ли уже активная сессия этого шаблона
-        String baseTemplateName = templateName;
-        CaptureSession existingSession = findExistingSession(baseTemplateName);
-        
-        if (existingSession != null) {
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Stopping existing session for template: " + baseTemplateName);
+    
+        // ===== ПРОВЕРЯЕМ, ЕСТЬ ЛИ УЖЕ АКТИВНАЯ СЕССИЯ ЭТОГО ШАБЛОНА =====
+        for (CaptureSession s : activeSessions.values()) {
+            if (s.getTemplate().getName().equalsIgnoreCase(templateName)) {
+                if (!silent && starter != null) {
+                    starter.sendMessage(ColorUtils.colorize("&cСессия для шаблона '" + templateName + "' уже запущена!"));
+                }
+                return false;
             }
-            existingSession.stopSilently();
-            activeSessions.remove(existingSession.getSessionId());
-            playerSessions.entrySet().removeIf(entry -> entry.getValue().equals(existingSession.getSessionId()));
-            plugin.getBossBarManager().removeBossBar(existingSession.getSessionId());
         }
-        
+ 
         String sessionId = generateSessionId(templateName);
         CaptureSession session = new CaptureSession(sessionId, template, points, silent, starter);
-        
+    
         activeSessions.put(sessionId, session);
         startSessionTask(sessionId);
-        
+    
         plugin.getLogger().info("Session started: " + sessionId + " by " + starter.getName());
         return true;
     }
@@ -63,33 +59,25 @@ public class SessionManager {
         if (template == null) {
             return false;
         }
-        
-        // Получаем базовое имя шаблона (без _override)
+    
         String templateName = template.getName();
-        String baseTemplateName = templateName;
-        if (baseTemplateName.endsWith("_override")) {
-            baseTemplateName = baseTemplateName.substring(0, baseTemplateName.length() - 9);
-        }
-        
-        // Проверяем, есть ли уже активная сессия этого шаблона
-        CaptureSession existingSession = findExistingSession(baseTemplateName);
-        
-        if (existingSession != null) {
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Stopping existing session for template: " + baseTemplateName);
+    
+        // ===== ПРОВЕРЯЕМ, ЕСТЬ ЛИ УЖЕ АКТИВНАЯ СЕССИЯ ЭТОГО ШАБЛОНА =====
+        for (CaptureSession s : activeSessions.values()) {
+            if (s.getTemplate().getName().equalsIgnoreCase(templateName)) {
+                if (!silent && starter != null) {
+                    starter.sendMessage(ColorUtils.colorize("&cСессия для шаблона '" + templateName + "' уже запущена!"));
+                }
+                return false;
             }
-            existingSession.stopSilently();
-            activeSessions.remove(existingSession.getSessionId());
-            playerSessions.entrySet().removeIf(entry -> entry.getValue().equals(existingSession.getSessionId()));
-            plugin.getBossBarManager().removeBossBar(existingSession.getSessionId());
         }
-        
+    
         String sessionId = generateSessionId(template.getName());
         CaptureSession session = new CaptureSession(sessionId, template, template.getNeedAmount(), silent, starter);
-        
+    
         activeSessions.put(sessionId, session);
         startSessionTask(sessionId);
-        
+    
         plugin.getLogger().info("Session started: " + sessionId + " by " + starter.getName());
         return true;
     }
