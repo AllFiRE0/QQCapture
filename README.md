@@ -1,4 +1,4 @@
-```markdown
+#```markdown
 # 🏴 QQCapture
 
 **QQCapture** — это продвинутый плагин для организации ивентов по захвату зоны (King of the Hill / Capture the Zone) на серверах Minecraft (Paper/Folia 1.21+). 
