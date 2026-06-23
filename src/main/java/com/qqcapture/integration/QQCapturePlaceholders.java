@@ -4,6 +4,7 @@ import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.PlayerData;
 import com.qqcapture.managers.TopStorageManager;
+import com.qqcapture.utils.ColorUtils;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -65,28 +66,27 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         placeholders.add("%qqcapture_session_inzone%");
         placeholders.add("%qqcapture_session_ticks%");
         
-        // ===== НОВЫЕ ЗАПОЛНИТЕЛИ =====
         placeholders.add("%qqcapture_player_template%");
-        placeholders.add("%qqcapture_player_template_&7Не в ивенте%");
+        placeholders.add("%qqcapture_player_template_Не в ивенте%");
         
         for (int i = 1; i <= 10; i++) {
             placeholders.add("%qqcapture_top_" + i + "_name%");
             placeholders.add("%qqcapture_top_" + i + "_value%");
             placeholders.add("%qqcapture_top_" + i + "_points%");
             
-            placeholders.add("%qqcapture_top_" + i + "_name_&6Нет игрока%");
-            placeholders.add("%qqcapture_top_" + i + "_value_&c0%");
-            placeholders.add("%qqcapture_top_" + i + "_points_&c0%");
+            placeholders.add("%qqcapture_top_" + i + "_name_Нет игрока%");
+            placeholders.add("%qqcapture_top_" + i + "_value_0%");
+            placeholders.add("%qqcapture_top_" + i + "_points_0%");
         }
         
         placeholders.add("%qqcapture_participants_ %");
         placeholders.add("%qqcapture_participants_,%");
         placeholders.add("%qqcapture_participants_.%");
-        placeholders.add("%qqcapture_participants_&e, &f%");
+        placeholders.add("%qqcapture_participants_, %");
         
-        placeholders.add("%qqcapture_current_&c0%");
-        placeholders.add("%qqcapture_players_&70%");
-        placeholders.add("%qqcapture_progress_&c0.0%");
+        placeholders.add("%qqcapture_current_0%");
+        placeholders.add("%qqcapture_players_0%");
+        placeholders.add("%qqcapture_progress_0.0%");
         
         for (String templateName : plugin.getConfigManager().getTemplateNames()) {
             placeholders.add("%qqcapture_" + templateName + "_current%");
@@ -94,9 +94,10 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             placeholders.add("%qqcapture_" + templateName + "_progress%");
             placeholders.add("%qqcapture_" + templateName + "_players%");
             placeholders.add("%qqcapture_" + templateName + "_time%");
+            placeholders.add("%qqcapture_" + templateName + "_template%");
             
-            // ===== НОВЫЙ ЗАПОЛНИТЕЛЬ: active для каждого шаблона =====
             placeholders.add("%qqcapture_" + templateName + "_active%");
+            placeholders.add("%qqcapture_" + templateName + "_active_нет%");
             placeholders.add("%qqcapture_" + templateName + "_active_&cНЕТ%");
             
             for (int i = 1; i <= 10; i++) {
@@ -104,16 +105,16 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
                 placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_value%");
                 placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_points%");
                 
-                placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_name_&6Нет игрока%");
-                placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_value_&c0%");
+                placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_name_Нет игрока%");
+                placeholders.add("%qqcapture_" + templateName + "_top_" + i + "_value_0%");
             }
             
             placeholders.add("%qqcapture_" + templateName + "_participants_ %");
             placeholders.add("%qqcapture_" + templateName + "_participants_,%");
             placeholders.add("%qqcapture_" + templateName + "_participants_.%");
             
-            placeholders.add("%qqcapture_" + templateName + "_current_&c0%");
-            placeholders.add("%qqcapture_" + templateName + "_players_&70%");
+            placeholders.add("%qqcapture_" + templateName + "_current_0%");
+            placeholders.add("%qqcapture_" + templateName + "_players_0%");
         }
         
         return placeholders;
@@ -130,28 +131,34 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             withoutPrefix = identifier.substring("qqcapture_".length());
         }
         
-        // ===== НОВЫЙ ЗАПОЛНИТЕЛЬ: player_template =====
-        if (withoutPrefix.startsWith("player_template")) {
-            String fallback = "Не в ивенте";
-            String rest = withoutPrefix.substring("player_template".length());
-            if (rest.startsWith("_&")) {
-                fallback = rest.substring(2);
+        // ===== ИЩЕМ FALLBACK В КОНЦЕ =====
+        String fallback = "";
+        String mainPart = withoutPrefix;
+        int lastUnderscore = withoutPrefix.lastIndexOf("_");
+        if (lastUnderscore > 0) {
+            fallback = withoutPrefix.substring(lastUnderscore + 1);
+            mainPart = withoutPrefix.substring(0, lastUnderscore);
+        }
+        
+        // ===== player_template =====
+        if (mainPart.startsWith("player_template")) {
+            String fb = "Не в ивенте";
+            if (!fallback.isEmpty()) {
+                fb = fallback;
             }
             CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
             if (session != null) {
                 return session.getTemplate().getName();
             }
-            return fallback;
+            return ColorUtils.colorize(fb);
         }
         
-        // ===== НОВЫЙ ЗАПОЛНИТЕЛЬ: active =====
-        if (withoutPrefix.endsWith("_active")) {
-            String templateName = withoutPrefix.substring(0, withoutPrefix.length() - 7);
-            String fallback = "no";
-            int fallbackIndex = templateName.lastIndexOf("_&");
-            if (fallbackIndex > 0) {
-                fallback = templateName.substring(fallbackIndex + 2);
-                templateName = templateName.substring(0, fallbackIndex);
+        // ===== active =====
+        if (mainPart.endsWith("_active")) {
+            String templateName = mainPart.substring(0, mainPart.length() - 7);
+            String fb = "no";
+            if (!fallback.isEmpty()) {
+                fb = fallback;
             }
             
             for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
@@ -159,20 +166,29 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
                     return "yes";
                 }
             }
-            return fallback;
+            return ColorUtils.colorize(fb);
         }
         
-        String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants"};
+        // ===== template без шаблона =====
+        if (mainPart.equals("template")) {
+            CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
+            if (session != null) {
+                return session.getTemplate().getName();
+            }
+            return ColorUtils.colorize("Неизвестно");
+        }
+        
+        // ===== ОСНОВНЫЕ ЗАПОЛНИТЕЛИ =====
+        String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants", "_template"};
         
         String templateName = null;
         String property = null;
-        String fallback = "";
         
         for (String prop : properties) {
-            int index = withoutPrefix.indexOf(prop);
+            int index = mainPart.indexOf(prop);
             if (index > 0) {
-                templateName = withoutPrefix.substring(0, index);
-                property = withoutPrefix.substring(index + 1);
+                templateName = mainPart.substring(0, index);
+                property = mainPart.substring(index + 1);
                 break;
             }
         }
@@ -180,21 +196,15 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         if (templateName == null) {
             String[] generalProps = {"current", "max", "progress", "players", "template", "time", "session_", "top_", "participants"};
             for (String prop : generalProps) {
-                if (withoutPrefix.startsWith(prop)) {
-                    property = withoutPrefix;
+                if (mainPart.startsWith(prop)) {
+                    property = mainPart;
                     break;
                 }
             }
         }
         
         if (property == null) {
-            return handleFallback(withoutPrefix);
-        }
-        
-        int fallbackIndex = property.indexOf("_&");
-        if (fallbackIndex > 0) {
-            fallback = property.substring(fallbackIndex + 2);
-            property = property.substring(0, fallbackIndex);
+            return fallback.isEmpty() ? "" : ColorUtils.colorize(fallback);
         }
         
         CaptureSession targetSession = null;
@@ -208,6 +218,11 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             }
         } else {
             targetSession = plugin.getSessionManager().getPlayerSession(player);
+        }
+        
+        // ===== template =====
+        if (property.equals("template") && templateName != null) {
+            return templateName;
         }
         
         if (property.startsWith("top_")) {
@@ -227,19 +242,18 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
                     case "players":
                         return String.valueOf(snapshot.getContributions().size());
                     case "time":
-                        long elapsed = System.currentTimeMillis() - snapshot.getEndTime();
-                        return formatTime(elapsed, "mm:ss");
+                        return formatTime(snapshot.getDuration(), "mm:ss");
                     case "participants":
                         return parseParticipantsPlaceholderFromSnapshot(snapshot, property, fallback);
                     default:
-                        return fallback.isEmpty() ? "0" : fallback;
+                        return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
                 }
             }
-            return handleFallback(property);
+            return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
         }
         
         if (targetSession == null) {
-            return handleFallback(property);
+            return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
         }
         
         if (property.startsWith("session_")) {
@@ -280,16 +294,8 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             case "participants":
                 return parseParticipantsPlaceholder(targetSession, property, fallback);
             default:
-                return handleFallback(property);
+                return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
         }
-    }
-    
-    private String handleFallback(String identifier) {
-        int fallbackIndex = identifier.indexOf("_&");
-        if (fallbackIndex > 0) {
-            return identifier.substring(fallbackIndex + 2);
-        }
-        return "";
     }
     
     private String parseTopPlaceholder(String templateName, CaptureSession session, String property, String fallback) {
@@ -298,7 +304,7 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         
         String[] parts = property.split("_");
         if (parts.length < 3) {
-            return fallback.isEmpty() ? "0" : fallback;
+            return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
         }
         
         try {
@@ -336,7 +342,7 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             }
         }
         
-        return fallback.isEmpty() ? "0" : fallback;
+        return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
     }
     
     private String parseParticipantsPlaceholder(CaptureSession session, String property, String fallback) {
@@ -356,7 +362,7 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
             .toList();
         
         if (names.isEmpty()) {
-            return fallback.isEmpty() ? "" : fallback;
+            return fallback.isEmpty() ? "" : ColorUtils.colorize(fallback);
         }
         
         return String.join(separator, names);
@@ -377,7 +383,7 @@ public class QQCapturePlaceholders extends PlaceholderExpansion {
         names.removeIf(name -> name == null || name.isEmpty());
         
         if (names.isEmpty()) {
-            return fallback.isEmpty() ? "" : fallback;
+            return fallback.isEmpty() ? "" : ColorUtils.colorize(fallback);
         }
         
         return String.join(separator, names);
