@@ -19,7 +19,6 @@ import java.util.UUID;
 public class PlayerListener implements Listener {
     private final QQCapture plugin;
     private final Set<UUID> trackedPlayers = new HashSet<>();
-    private final Set<UUID> pendingHidePlayers = new HashSet<>();
     
     public PlayerListener() {
         this.plugin = QQCapture.getInstance();
@@ -55,7 +54,6 @@ public class PlayerListener implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         trackedPlayers.remove(player.getUniqueId());
-        pendingHidePlayers.remove(player.getUniqueId());
         
         CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
         if (session != null) {
@@ -68,13 +66,8 @@ public class PlayerListener implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         
-        // ===== ЕСЛИ ИГРОК В ОЧЕРЕДИ НА СКРЫТИЕ — ПРОПУСКАЕМ =====
-        if (pendingHidePlayers.contains(uuid)) {
-            return;  // ← ТОЛЬКО ЭТА СТРОКА ДОБАВЛЕНА!
-        }
-        
         // Проверяем только если игрок в зоне или был в зоне
-        if (!trackedPlayers.contains(uuid) && !pendingHidePlayers.contains(uuid)) {
+        if (!trackedPlayers.contains(uuid)) {
             boolean inAnyZone = false;
             for (CaptureSession session : plugin.getSessionManager().getActiveSessions()) {
                 if (session.isStopped() || session.isComplete()) continue;
@@ -116,10 +109,8 @@ public class PlayerListener implements Listener {
             }
             
             if (nowInZone && !isInSession) {
-                pendingHidePlayers.remove(uuid);
                 onPlayerEnterZone(player, session);
             } else if (nowInZone && isInSession) {
-                pendingHidePlayers.remove(uuid);
                 if (template.isBossBarEnabled()) {
                     plugin.getBossBarManager().showBossBar(player, session);
                 }
@@ -154,7 +145,6 @@ public class PlayerListener implements Listener {
         }
         
         trackedPlayers.add(player.getUniqueId());
-        pendingHidePlayers.remove(player.getUniqueId());
         
         plugin.getSessionManager().addPlayerToSession(session.getSessionId(), player);
         
@@ -169,10 +159,7 @@ public class PlayerListener implements Listener {
         
         UUID uuid = player.getUniqueId();
         
-        if (pendingHidePlayers.contains(uuid)) {
-            return;
-        }
-        
+        // Проверяем, не в другой ли сессии игрок
         boolean inOtherSession = false;
         for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
             if (s.getSessionId().equals(session.getSessionId())) continue;
@@ -186,44 +173,15 @@ public class PlayerListener implements Listener {
             return;
         }
         
-        pendingHidePlayers.add(uuid);
+        // ===== УДАЛЯЕМ ИГРОКА ИЗ СЕССИИ =====
+        session.removePlayer(player);
+        
+        // ===== СКРЫВАЕМ БОССБАР СРАЗУ =====
+        plugin.getBossBarManager().hideBossBar(player, session);
+        trackedPlayers.remove(uuid);
         
         if (plugin.getConfigManager().isDebug()) {
-            plugin.getLogger().info("Player " + player.getName() + 
-                " left zone, bossbar will hide in 5 seconds");
+            plugin.getLogger().info("Player " + player.getName() + " left zone, bossbar hidden");
         }
-        
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (!pendingHidePlayers.contains(uuid)) {
-                return;
-            }
-            
-            if (session.getPlayers().containsKey(player.getUniqueId())) {
-                pendingHidePlayers.remove(uuid);
-                return;
-            }
-            
-            boolean inOtherSessionNow = false;
-            for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
-                if (s.getPlayers().containsKey(player.getUniqueId())) {
-                    inOtherSessionNow = true;
-                    break;
-                }
-            }
-            
-            if (inOtherSessionNow) {
-                pendingHidePlayers.remove(uuid);
-                return;
-            }
-            
-            plugin.getBossBarManager().hideBossBar(player, session);
-            trackedPlayers.remove(uuid);
-            pendingHidePlayers.remove(uuid);
-            
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("BossBar hidden for player " + player.getName() + 
-                    " after 5s delay");
-            }
-        }, 100L);
     }
 }
