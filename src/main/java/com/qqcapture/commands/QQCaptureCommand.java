@@ -244,7 +244,7 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
 
     private Template createOverriddenTemplate(Template original, int points, int duration, String regionName,
                                               Double multiplier, Double teamMultiplier, Integer tickCapture) {
-        Template.Builder builder = new Template.Builder(original.getName() + "_override");
+        Template.Builder builder = new Template.Builder(original.getName());
 
         builder.bossBarEnabled(original.isBossBarEnabled())
                 .bossBarColor(original.getBossBarColor())
