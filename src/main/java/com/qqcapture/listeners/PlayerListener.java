@@ -66,7 +66,6 @@ public class PlayerListener implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
         
-        // Проверяем только если игрок в зоне или был в зоне
         if (!trackedPlayers.contains(uuid)) {
             boolean inAnyZone = false;
             for (CaptureSession session : plugin.getSessionManager().getActiveSessions()) {
@@ -159,7 +158,6 @@ public class PlayerListener implements Listener {
         
         UUID uuid = player.getUniqueId();
         
-        // Проверяем, не в другой ли сессии игрок
         boolean inOtherSession = false;
         for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
             if (s.getSessionId().equals(session.getSessionId())) continue;
@@ -173,10 +171,7 @@ public class PlayerListener implements Listener {
             return;
         }
         
-        // ===== УДАЛЯЕМ ИГРОКА ИЗ СЕССИИ =====
         session.removePlayer(player);
-        
-        // ===== СКРЫВАЕМ БОССБАР СРАЗУ =====
         plugin.getBossBarManager().hideBossBar(player, session);
         trackedPlayers.remove(uuid);
         
