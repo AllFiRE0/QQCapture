@@ -298,25 +298,24 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         }
 
         String templateName = args[1];
-
+    
+        // ИЩЕМ СЕССИЮ ПО ИМЕНИ ШАБЛОНА
         CaptureSession session = null;
         for (CaptureSession s : plugin.getSessionManager().getActiveSessions()) {
-            if (s.getTemplate().getName().equalsIgnoreCase(templateName) ||
-                    s.getTemplate().getName().equalsIgnoreCase(templateName + "_override")) {
+            if (s.getTemplate().getName().equalsIgnoreCase(templateName)) {
                 session = s;
                 break;
             }
         }
-
+    
         if (session == null) {
-            sender.sendMessage(ColorUtils.colorize("&cNo active session found for template: " + templateName));
+            sender.sendMessage(ColorUtils.colorize("&cНет активной сессии для шаблона: " + templateName));
             return true;
         }
-
+    
         plugin.getSessionManager().stopSession(session.getSessionId());
-        sender.sendMessage(ColorUtils.colorize("&aSession for template '" + templateName + "' stopped!"));
-        plugin.getLogger().info("Session " + session.getSessionId() + " stopped by " + sender.getName());
-
+        sender.sendMessage(ColorUtils.colorize("&aСессия для шаблона '" + templateName + "' остановлена!"));
+    
         return true;
     }
 
