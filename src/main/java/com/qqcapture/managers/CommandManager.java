@@ -261,8 +261,16 @@ public class CommandManager {
             handleTitleCommandWithParams(targetPlayer != null ? targetPlayer : players.get(0), content, prefix.substring(6));
             return;
         }
+        if (prefix.startsWith("gTitle:")) {
+            handleGlobalTitleCommandWithParams(content, prefix.substring(6));
+            return;
+        }
         if (prefix.startsWith("actionbar:")) {
             handleActionbarCommandWithParams(targetPlayer != null ? targetPlayer : players.get(0), content, prefix.substring(10));
+            return;
+        }
+        if (prefix.startsWith("gActionbar:")) {
+            handleGlobalActionbarCommandWithParams(content, prefix.substring(10));
             return;
         }
         
@@ -356,6 +364,14 @@ public class CommandManager {
         sendActionBarAll(message, duration);
     }
     
+    private void handleGlobalActionbarCommandWithParams(String content, String params) {
+        int duration = 60;
+        try {
+            duration = Integer.parseInt(params);
+        } catch (NumberFormatException ignored) {}
+        sendActionBarAll(content, duration);
+    }
+    
     // ===== TITLE =====
     
     private void handleTitleCommandWithParams(Player player, String content, String params) {
@@ -370,6 +386,19 @@ public class CommandManager {
             } catch (NumberFormatException ignored) {}
         }
         sendTitle(player, content, 20, 40, 20);
+    }
+    
+    private void handleGlobalTitleCommandWithParams(String content, String params) {
+        String[] times = params.split(":");
+        int fadeIn = 20, stay = 40, fadeOut = 20;
+        if (times.length == 3) {
+            try {
+                fadeIn = Integer.parseInt(times[0]);
+                stay = Integer.parseInt(times[1]);
+                fadeOut = Integer.parseInt(times[2]);
+            } catch (NumberFormatException ignored) {}
+        }
+        sendTitleAll(content, fadeIn, stay, fadeOut);
     }
     
     private void handleTitleCommand(Player player, String content) {
@@ -473,33 +502,32 @@ public class CommandManager {
     
     private void sendTitle(Player player, String titleText, int fadeIn, int stay, int fadeOut) {
         String text = plugin.getPlaceholderManager().parsePlaceholders(player, titleText);
-        Component title;
-        Component subtitle = Component.empty();
-    
-        // ===== ПРОВЕРЯЕМ РАЗДЕЛИТЕЛИ: \n ИЛИ || =====
-        String[] parts = null;
-    
-        // Сначала пробуем \n
-        if (text.contains("\\n")) {
-            parts = text.split("\\\\n", 2);
-        } 
-        // Потом пробуем ||
-        else if (text.contains("||")) {
-            parts = text.split("\\|\\|", 2);
-        }
-    
-        if (parts != null && parts.length == 2) {
-            title = parseMessage(parts[0]);
-            subtitle = parseMessage(parts[1]);
+        Component titleComponent;
+        Component subtitleComponent = Component.empty();
+
+        // ===== РАЗДЕЛИТЕЛЬ || ВСЕГДА ДЛЯ TITLE/SUBTITLE =====
+        if (text.contains("||")) {
+            String[] parts = text.split("\\|\\|", 2);
+            titleComponent = parseMessage(parts[0].trim());
+            if (parts.length > 1 && !parts[1].trim().isEmpty()) {
+                subtitleComponent = parseMessage(parts[1].trim());
+            }
         } else {
-            title = parseMessage(text);
+            // Если нет || — весь текст в title
+            titleComponent = parseMessage(text);
         }
-    
+
         Title.Times times = Title.Times.times(
             Ticks.duration(fadeIn),
             Ticks.duration(stay),
             Ticks.duration(fadeOut)
         );
-        player.showTitle(Title.title(title, subtitle, times));
+        player.showTitle(Title.title(titleComponent, subtitleComponent, times));
+    }
+    
+    private void sendTitleAll(String titleText, int fadeIn, int stay, int fadeOut) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            sendTitle(player, titleText, fadeIn, stay, fadeOut);
+        }
     }
 }
