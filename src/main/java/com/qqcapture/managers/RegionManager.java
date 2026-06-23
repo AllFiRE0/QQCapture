@@ -3,13 +3,9 @@ package com.qqcapture.managers;
 import com.qqcapture.QQCapture;
 import com.qqcapture.models.CaptureSession;
 import com.qqcapture.models.Template;
-import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
-import com.sk89q.worldguard.protection.ApplicableRegionSet;
-import com.sk89q.worldguard.protection.flags.Flag;
 import com.sk89q.worldguard.protection.flags.StateFlag;
-// import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
@@ -40,66 +36,121 @@ public class RegionManager {
         }
     }
     
-    public void setupRegion(CaptureSession session) {
+    // ===== СОЗДАНИЕ РЕГИОНОВ ДЛЯ ВСЕХ ЗОН =====
+    public void setupRegions(CaptureSession session) {
         if (!enabled) {
             return;
         }
     
-        String regionName = session.getTemplate().getRegionName();
-        if (regionName == null || regionName.isEmpty()) {
+        String baseRegionName = session.getTemplate().getRegionName();
+        if (baseRegionName == null || baseRegionName.isEmpty()) {
             return;
         }
     
         try {
-            // Берем первую зону для создания региона
-            Template.Zone firstZone = session.getTemplate().getZones().values().stream().findFirst().orElse(null);
-            if (firstZone == null) {
-                plugin.getLogger().warning("No zones found for template: " + session.getTemplate().getName());
-                return;
-            }
-        
-            World world = firstZone.getPos1().getWorld();
-            if (world == null) {
-                world = plugin.getServer().getWorlds().get(0);
-            }
-        
-            RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-            com.sk89q.worldguard.protection.managers.RegionManager manager = container.get(com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world));
-        
-            if (manager == null) {
-                plugin.getLogger().warning("Could not get RegionManager for world: " + world.getName());
-                return;
-            }
-        
-            ProtectedRegion region = manager.getRegion(regionName);
-            if (region == null) {
-                com.sk89q.worldedit.math.BlockVector3 min = com.sk89q.worldedit.math.BlockVector3.at(
-                    Math.min(firstZone.getPos1().getBlockX(), firstZone.getPos2().getBlockX()),
-                    Math.min(firstZone.getPos1().getBlockY(), firstZone.getPos2().getBlockY()),
-                    Math.min(firstZone.getPos1().getBlockZ(), firstZone.getPos2().getBlockZ())
+            int zoneId = 0;
+            for (Map.Entry<Integer, Template.Zone> entry : session.getTemplate().getZones().entrySet()) {
+                zoneId++;
+                Template.Zone zone = entry.getValue();
+                
+                World world = zone.getPos1().getWorld();
+                if (world == null) {
+                    world = plugin.getServer().getWorlds().get(0);
+                }
+    
+                RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+                com.sk89q.worldguard.protection.managers.RegionManager manager = container.get(
+                    com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world)
                 );
-                com.sk89q.worldedit.math.BlockVector3 max = com.sk89q.worldedit.math.BlockVector3.at(
-                    Math.max(firstZone.getPos1().getBlockX(), firstZone.getPos2().getBlockX()),
-                    Math.max(firstZone.getPos1().getBlockY(), firstZone.getPos2().getBlockY()),
-                    Math.max(firstZone.getPos1().getBlockZ(), firstZone.getPos2().getBlockZ())
-                );
-            
-                region = new ProtectedCuboidRegion(regionName, min, max);
-                manager.addRegion(region);
+    
+                if (manager == null) {
+                    plugin.getLogger().warning("Could not get RegionManager for world: " + world.getName());
+                    continue;
+                }
+    
+                // ===== УНИКАЛЬНОЕ ИМЯ ДЛЯ КАЖДОЙ ЗОНЫ =====
+                String zoneRegionName = baseRegionName + "_zone_" + zoneId;
+                
+                ProtectedRegion region = manager.getRegion(zoneRegionName);
+                if (region == null) {
+                    com.sk89q.worldedit.math.BlockVector3 min = com.sk89q.worldedit.math.BlockVector3.at(
+                        Math.min(zone.getPos1().getBlockX(), zone.getPos2().getBlockX()),
+                        Math.min(zone.getPos1().getBlockY(), zone.getPos2().getBlockY()),
+                        Math.min(zone.getPos1().getBlockZ(), zone.getPos2().getBlockZ())
+                    );
+                    com.sk89q.worldedit.math.BlockVector3 max = com.sk89q.worldedit.math.BlockVector3.at(
+                        Math.max(zone.getPos1().getBlockX(), zone.getPos2().getBlockX()),
+                        Math.max(zone.getPos1().getBlockY(), zone.getPos2().getBlockY()),
+                        Math.max(zone.getPos1().getBlockZ(), zone.getPos2().getBlockZ())
+                    );
+    
+                    region = new ProtectedCuboidRegion(zoneRegionName, min, max);
+                    manager.addRegion(region);
+                }
+    
+                // ===== ПРИМЕНЯЕМ ФЛАГИ =====
+                applyRegionFlags(region, session.getTemplate().getRegionFlags());
+    
+                if (plugin.getConfigManager().isDebug()) {
+                    plugin.getLogger().info("Region created: " + zoneRegionName + " for zone " + zoneId);
+                }
             }
-        
-            applyRegionFlags(region, session.getTemplate().getRegionFlags());
-        
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("Region setup: " + regionName + " for session " + session.getSessionId());
-            }
-        
+    
         } catch (Exception e) {
-            plugin.getLogger().warning("Failed to setup region: " + regionName);
+            plugin.getLogger().warning("Failed to setup regions for template: " + session.getTemplate().getName());
             e.printStackTrace();
         }
     }
     
+    // ===== УДАЛЕНИЕ РЕГИОНОВ =====
+    public void deleteRegions(String baseRegionName, World world) {
+        if (!enabled || world == null || baseRegionName == null || baseRegionName.isEmpty()) {
+            return;
+        }
+    
+        try {
+            RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+            com.sk89q.worldguard.protection.managers.RegionManager manager = container.get(
+                com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world)
+            );
+    
+            if (manager == null) {
+                return;
+            }
+    
+            // ===== УДАЛЯЕМ ВСЕ РЕГИОНЫ С ЭТИМ ИМЕНЕМ =====
+            int deleted = 0;
+            for (String regionName : manager.getRegions().keySet()) {
+                if (regionName.startsWith(baseRegionName + "_zone_")) {
+                    manager.removeRegion(regionName);
+                    deleted++;
+                    if (plugin.getConfigManager().isDebug()) {
+                        plugin.getLogger().info("Region deleted: " + regionName);
+                    }
+                }
+            }
+    
+            // ===== УДАЛЯЕМ ОСНОВНОЙ РЕГИОН (ЕСЛИ ЕСТЬ) =====
+            ProtectedRegion mainRegion = manager.getRegion(baseRegionName);
+            if (mainRegion != null) {
+                manager.removeRegion(baseRegionName);
+                deleted++;
+                if (plugin.getConfigManager().isDebug()) {
+                    plugin.getLogger().info("Region deleted: " + baseRegionName);
+                }
+            }
+    
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("Deleted " + deleted + " regions for template: " + baseRegionName);
+            }
+    
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to delete regions: " + baseRegionName);
+            e.printStackTrace();
+        }
+    }
+    
+    // ===== ПРИМЕНЕНИЕ ФЛАГОВ =====
     private void applyRegionFlags(ProtectedRegion region, String flagsString) {
         if (flagsString == null || flagsString.isEmpty()) {
             return;
@@ -125,26 +176,23 @@ public class RegionManager {
     private void applyFlag(ProtectedRegion region, String flagName, String flagValue) {
         try {
             if (flagName.equalsIgnoreCase("pvp")) {
-                StateFlag pvpFlag = com.sk89q.worldguard.protection.flags.Flags.PVP;
-                region.setFlag(pvpFlag, parseStateFlag(flagValue));
-            } else if (flagName.equalsIgnoreCase("allow-spawning")) {
-                StateFlag spawningFlag = com.sk89q.worldguard.protection.flags.Flags.MOB_SPAWNING;
-                region.setFlag(spawningFlag, parseStateFlag(flagValue));
+                region.setFlag(com.sk89q.worldguard.protection.flags.Flags.PVP, parseStateFlag(flagValue));
+            } else if (flagName.equalsIgnoreCase("allow-spawning") || flagName.equalsIgnoreCase("mob-spawning")) {
+                region.setFlag(com.sk89q.worldguard.protection.flags.Flags.MOB_SPAWNING, parseStateFlag(flagValue));
             } else if (flagName.equalsIgnoreCase("mob-damage")) {
-                StateFlag mobDamageFlag = com.sk89q.worldguard.protection.flags.Flags.MOB_DAMAGE;
-                region.setFlag(mobDamageFlag, parseStateFlag(flagValue));
+                region.setFlag(com.sk89q.worldguard.protection.flags.Flags.MOB_DAMAGE, parseStateFlag(flagValue));
             } else if (flagName.equalsIgnoreCase("fall-damage")) {
-                StateFlag fallDamageFlag = com.sk89q.worldguard.protection.flags.Flags.FALL_DAMAGE;
-                region.setFlag(fallDamageFlag, parseStateFlag(flagValue));
+                region.setFlag(com.sk89q.worldguard.protection.flags.Flags.FALL_DAMAGE, parseStateFlag(flagValue));
             } else if (flagName.equalsIgnoreCase("block-break")) {
-                StateFlag blockBreakFlag = com.sk89q.worldguard.protection.flags.Flags.BLOCK_BREAK;
-                region.setFlag(blockBreakFlag, parseStateFlag(flagValue));
+                region.setFlag(com.sk89q.worldguard.protection.flags.Flags.BLOCK_BREAK, parseStateFlag(flagValue));
             } else if (flagName.equalsIgnoreCase("block-place")) {
-                StateFlag blockPlaceFlag = com.sk89q.worldguard.protection.flags.Flags.BLOCK_PLACE;
-                region.setFlag(blockPlaceFlag, parseStateFlag(flagValue));
+                region.setFlag(com.sk89q.worldguard.protection.flags.Flags.BLOCK_PLACE, parseStateFlag(flagValue));
             } else if (flagName.equalsIgnoreCase("use")) {
-                StateFlag useFlag = com.sk89q.worldguard.protection.flags.Flags.USE;
-                region.setFlag(useFlag, parseStateFlag(flagValue));
+                region.setFlag(com.sk89q.worldguard.protection.flags.Flags.USE, parseStateFlag(flagValue));
+            } else if (flagName.equalsIgnoreCase("entry")) {
+                region.setFlag(com.sk89q.worldguard.protection.flags.Flags.ENTRY, parseStateFlag(flagValue));
+            } else if (flagName.equalsIgnoreCase("exit")) {
+                region.setFlag(com.sk89q.worldguard.protection.flags.Flags.EXIT, parseStateFlag(flagValue));
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to apply flag: " + flagName + " = " + flagValue);
@@ -152,9 +200,9 @@ public class RegionManager {
     }
     
     private StateFlag.State parseStateFlag(String value) {
-        if (value.equalsIgnoreCase("allow") || value.equalsIgnoreCase("allow")) {
+        if (value.equalsIgnoreCase("allow")) {
             return StateFlag.State.ALLOW;
-        } else if (value.equalsIgnoreCase("deny") || value.equalsIgnoreCase("deny")) {
+        } else if (value.equalsIgnoreCase("deny")) {
             return StateFlag.State.DENY;
         }
         return StateFlag.State.ALLOW;
@@ -172,7 +220,9 @@ public class RegionManager {
             }
             
             RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-            com.sk89q.worldguard.protection.managers.RegionManager manager = container.get(com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world));
+            com.sk89q.worldguard.protection.managers.RegionManager manager = container.get(
+                com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world)
+            );
             
             if (manager == null) {
                 return false;
