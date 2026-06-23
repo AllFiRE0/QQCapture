@@ -132,7 +132,7 @@ public class CaptureSession {
         }
         
         if (!template.getRegionName().isEmpty()) {
-            QQCapture.getInstance().getRegionManager().setupRegion(this);
+            QQCapture.getInstance().getRegionManager().setupRegions(this);
         }
     }
     
@@ -348,6 +348,18 @@ public class CaptureSession {
             QQCapture.getInstance().getTopStorageManager().saveTop(template.getName(), entries, duration);
         }
         
+        if (template.isRegionEnabled()) {
+            String regionName = template.getRegionName();
+            Template.Zone firstZone = template.getZones().values().stream().findFirst().orElse(null);
+            if (firstZone != null) {
+                World world = firstZone.getPos1().getWorld();
+                if (world == null) {
+                    world = plugin.getServer().getWorlds().get(0);
+                }
+             QQCapture.getInstance().getRegionManager().deleteRegions(regionName, world);
+            }
+        }
+        
         SessionSnapshot snapshot = new SessionSnapshot(this);
         completedSessions.put(sessionId, snapshot);
         
@@ -417,6 +429,18 @@ public class CaptureSession {
         // Скрываем боссбар у всех игроков
         for (Player player : Bukkit.getOnlinePlayers()) {
             QQCapture.getInstance().getBossBarManager().hideBossBar(player, this);
+        }
+        
+        if (template.isRegionEnabled()) {
+            String regionName = template.getRegionName();
+            Template.Zone firstZone = template.getZones().values().stream().findFirst().orElse(null);
+            if (firstZone != null) {
+                World world = firstZone.getPos1().getWorld();
+                if (world == null) {
+                    world = plugin.getServer().getWorlds().get(0);
+                }
+                QQCapture.getInstance().getRegionManager().deleteRegions(regionName, world);
+            }
         }
         
         // НЕ выполняем end-команды
