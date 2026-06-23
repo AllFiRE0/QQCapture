@@ -197,7 +197,7 @@ public class PlaceholderManager {
             cleanTemplateName = cleanTemplateName.substring(0, cleanTemplateName.length() - 9);
         }
         
-        List<TopStorageManager.TopEntry> entries = storage.getTop(cleanTemplateName);
+        List<TopStorageManager.TopEntry> entries = storage.getTop(templateName);
         
         String[] parts = property.split("_");
         if (parts.length < 3) {
