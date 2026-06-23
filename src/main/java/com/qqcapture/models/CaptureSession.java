@@ -43,6 +43,7 @@ public class CaptureSession {
         private final Map<UUID, Integer> contributions;
         private final Map<UUID, String> playerNames;
         private final long endTime;
+        private final long duration;
         private final String sessionId;
         
         public SessionSnapshot(CaptureSession session) {
@@ -51,6 +52,7 @@ public class CaptureSession {
             this.totalPoints = session.currentPoints;
             this.targetPoints = session.targetPoints;
             this.endTime = System.currentTimeMillis();
+            this.duration = this.endTime - session.startTime;
             this.contributions = new HashMap<>();
             this.playerNames = new HashMap<>();
             
@@ -72,6 +74,7 @@ public class CaptureSession {
         public Map<UUID, Integer> getContributions() { return contributions; }
         public Map<UUID, String> getPlayerNames() { return playerNames; }
         public long getEndTime() { return endTime; }
+        public long getDuration() { return duration; }
         public String getSessionId() { return sessionId; }
     }
     
@@ -405,9 +408,6 @@ public class CaptureSession {
         }
     }
     
-    /**
-     * Остановка сессии без выполнения команд и сообщений (для замены шаблона)
-     */
     public void stopSilently() {
         stopped = true;
         
@@ -427,7 +427,6 @@ public class CaptureSession {
             endDelayTask.cancel();
         }
         
-        // Скрываем боссбар у всех игроков
         for (Player player : Bukkit.getOnlinePlayers()) {
             QQCapture.getInstance().getBossBarManager().hideBossBar(player, this);
         }
@@ -443,9 +442,6 @@ public class CaptureSession {
                 QQCapture.getInstance().getRegionManager().deleteRegions(regionName, world);
             }
         }
-        
-        // НЕ выполняем end-команды
-        // НЕ отправляем сообщения о завершении
     }
     
     public void addPlayer(Player player) {
