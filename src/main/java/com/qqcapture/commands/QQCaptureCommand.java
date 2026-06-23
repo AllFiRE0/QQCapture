@@ -496,64 +496,124 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("top")) {
                 completions.add("reset");
-            } else if (args[0].equalsIgnoreCase("start") || args[0].equalsIgnoreCase("info") || args[0].equalsIgnoreCase("stop")) {
+            } else if (args[0].equalsIgnoreCase("start") ||
+                   args[0].equalsIgnoreCase("info") ||
+                   args[0].equalsIgnoreCase("stop")) {
                 for (String templateName : plugin.getConfigManager().getTemplateNames()) {
                     if (templateName.toLowerCase().startsWith(args[1].toLowerCase())) {
                         completions.add(templateName);
                     }
                 }
             }
-        } else if (args.length == 3) {
-            if (args[0].equalsIgnoreCase("start")) {
-                for (String templateName : plugin.getConfigManager().getTemplateNames()) {
-                    if (templateName.toLowerCase().startsWith(args[2].toLowerCase())) {
-                        completions.add(templateName);
+        } else if (args.length >= 3 && args[0].equalsIgnoreCase("start")) {
+            // ===== ПРОВЕРЯЕМ, ЧТО ШАБЛОН УЖЕ ВВЕДЁН =====
+            // args[1] — это шаблон (должен быть)
+            String templateName = args[1];
+            if (!plugin.getConfigManager().templateExists(templateName)) {
+                // Если шаблон не существует — предлагаем шаблоны
+                for (String name : plugin.getConfigManager().getTemplateNames()) {
+                    if (name.toLowerCase().startsWith(templateName.toLowerCase())) {
+                    completions.add(name);
                     }
                 }
-            } else if (args[0].equalsIgnoreCase("top") && args[1].equalsIgnoreCase("reset")) {
-                completions.add("clear");
-                for (String templateName : plugin.getConfigManager().getTemplateNames()) {
-                    if (templateName.toLowerCase().startsWith(args[2].toLowerCase())) {
-                        completions.add(templateName);
-                    }
-                }
+                return completions;
             }
-        } else if (args.length == 4) {
-            if (args[0].equalsIgnoreCase("top") && args[1].equalsIgnoreCase("reset")) {
-                completions.add("clear");
-                completions.add("-s");
-            }
-        } else if (args.length >= 4 && args[0].equalsIgnoreCase("start")) {
+
+            // ШАБЛОН ЕСТЬ — ПОКАЗЫВАЕМ ПАРАМЕТРЫ
             String lastArg = args[args.length - 1];
             String[] options = {"-p:", "-d:", "-r:", "-m:", "-mt:", "-t:", "-s"};
-            for (String option : options) {
-                if (option.startsWith(lastArg.toLowerCase())) {
-                    completions.add(option);
+
+            // Собираем уже использованные параметры
+            List<String> usedParams = new ArrayList<>();
+            for (int i = 2; i < args.length; i++) {
+                String arg = args[i];
+                if (arg.startsWith("-")) {
+                    if (arg.contains(":")) {
+                    usedParams.add(arg.substring(0, arg.indexOf(":") + 1));
+                    } else {
+                        usedParams.add(arg);
+                    }
                 }
             }
+
+            // Если пользователь вводит конкретный параметр с значением
             if (lastArg.startsWith("-p:")) {
                 completions.add("-p:1000");
                 completions.add("-p:10000");
                 completions.add("-p:100000");
                 completions.add("-p:1000000");
-            }
-            if (lastArg.startsWith("-d:")) {
+            } else if (lastArg.startsWith("-d:")) {
                 completions.add("-d:60");
                 completions.add("-d:120");
                 completions.add("-d:300");
-            }
-            if (lastArg.startsWith("-t:")) {
+                completions.add("-d:600");
+                completions.add("-d:900");
+            } else if (lastArg.startsWith("-t:")) {
                 completions.add("-t:10");
                 completions.add("-t:20");
                 completions.add("-t:40");
+                completions.add("-t:80");
+                completions.add("-t:120");
+            } else if (lastArg.startsWith("-m:")) {
+                completions.add("-m:0.01");
+                completions.add("-m:0.1");
+                completions.add("-m:1.0");
+                completions.add("-m:2.0");
+            } else if (lastArg.startsWith("-mt:")) {
+                completions.add("-mt:0.1");
+                completions.add("-mt:0.5");
+                completions.add("-mt:1.0");
+                completions.add("-mt:2.0");
+            } else if (lastArg.startsWith("-r:")) {
+                completions.add("-r:my_region");
+            } else {
+                // Показываем ВСЕ доступные параметры (которые ещё не использованы)
+                for (String option : options) {
+                    boolean alreadyUsed = false;
+                    for (String used : usedParams) {
+                        if (used.equalsIgnoreCase(option)) {
+                        alreadyUsed = true;
+                            break;
+                        }
+                    }
+
+                    if (!alreadyUsed && option.startsWith(lastArg.toLowerCase())) {
+                        completions.add(option);
+                    }
+                }
+
+                // Если ввели просто "-" — показываем все параметры
+                if (lastArg.equals("-")) {
+                    for (String option : options) {
+                        boolean alreadyUsed = false;
+                        for (String used : usedParams) {
+                            if (used.equalsIgnoreCase(option)) {
+                            alreadyUsed = true;
+                                break;
+                            }
+                        }
+                        if (!alreadyUsed) {
+                            completions.add(option);
+                        }
+                    }
+                }
             }
-        } else if (args.length >= 5 && args[0].equalsIgnoreCase("top") && args[1].equalsIgnoreCase("reset")) {
+        } else if (args.length >= 3 && args[0].equalsIgnoreCase("top") && args[1].equalsIgnoreCase("reset")) {
             String lastArg = args[args.length - 1];
-            if ("-s".startsWith(lastArg.toLowerCase())) {
-                completions.add("-s");
+
+            if (args.length == 3) {
+                for (String templateName : plugin.getConfigManager().getTemplateNames()) {
+                    if (templateName.toLowerCase().startsWith(lastArg.toLowerCase())) {
+                        completions.add(templateName);
+                    }
+                }
+                completions.add("clear");
+            } else if (args.length >= 4) {
+                if ("-s".startsWith(lastArg.toLowerCase())) {
+                    completions.add("-s");
+                }
             }
         }
 
         return completions;
-    }
 }
