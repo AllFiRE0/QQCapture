@@ -200,7 +200,7 @@ public class PlaceholderManager {
         
         String[] parts = property.split("_");
         if (parts.length < 3) {
-            return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback)
+            return fallback.isEmpty() ? "0" : ColorUtils.colorize(fallback);
         }
         
         try {
