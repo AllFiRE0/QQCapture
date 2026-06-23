@@ -616,4 +616,5 @@ public class QQCaptureCommand implements CommandExecutor, TabCompleter {
         }
 
         return completions;
+    }
 }
