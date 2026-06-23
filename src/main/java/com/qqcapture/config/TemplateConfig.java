@@ -446,7 +446,7 @@ public class TemplateConfig {
         Set<String> validPrefixes = new HashSet<>(Arrays.asList(
             "asConsole", "asPlayer", "message", "gMessage", 
             "sound", "gSound", "actionbar", "gActionbar", 
-            "title", "delay", "random"
+            "title", "gTitle", "delay", "random"
         ));
         
         for (String command : commands) {
@@ -553,6 +553,13 @@ public class TemplateConfig {
                             "': Invalid delay format: " + trimmed);
                         continue;
                     }
+                    validated.add(trimmed);
+                    continue;
+                }
+                
+                // ===== ДОБАВЛЯЕМ ПРОВЕРКУ ДЛЯ ТАЙТЛОВ =====
+                if (prefix.startsWith("title:") || prefix.startsWith("gTitle:")) {
+                    // Валидация для тайтлов
                     validated.add(trimmed);
                     continue;
                 }
