@@ -114,13 +114,13 @@ public class PlaceholderManager {
                 fallback = rest.substring(2);
             }
             if (player == null) {
-                return fallback;
+                return ColorUtils.colorize(fallback);
             }
             CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
             if (session != null) {
                 return session.getTemplate().getName();
             }
-            return fallback;
+            return ColorUtils.colorize(fallback);
         }
         
         // ===== НОВЫЙ ЗАПОЛНИТЕЛЬ: active =====
@@ -139,10 +139,10 @@ public class PlaceholderManager {
                     return "yes";
                 }
             }
-            return fallback;
+            return ColorUtils.colorize(fallback);
         }
         
-        String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants"};
+        String[] properties = {"_current", "_max", "_progress", "_players", "_time", "_top_", "_participants", "_template"};
         
         String templateName = null;
         String property = null;
@@ -158,6 +158,14 @@ public class PlaceholderManager {
         }
         
         if (templateName == null || property == null) {
+            // Проверяем, может это просто "template" без шаблона
+            if (withoutPrefix.equals("template")) {
+                CaptureSession session = plugin.getSessionManager().getPlayerSession(player);
+                if (session != null) {
+                    return session.getTemplate().getName();
+                }
+                return "Неизвестно";
+            }
             return placeholder;
         }
         
@@ -174,6 +182,11 @@ public class PlaceholderManager {
             .filter(s -> s.getTemplate().getName().equalsIgnoreCase(finalTemplateName))
             .findFirst()
             .orElse(null);
+        
+        // ===== template =====
+        if (property.equals("template")) {
+            return finalTemplateName;
+        }
         
         if (property.startsWith("top_")) {
             return parseTopPlaceholder(finalTemplateName, session, property, fallback);
@@ -292,7 +305,7 @@ public class PlaceholderManager {
             .toList();
         
         if (names.isEmpty()) {
-            return fallback.isEmpty() ? "" : fallback;
+            return fallback.isEmpty() ? "" : ColorUtils.colorize(fallback);
         }
         
         return String.join(separator, names);
@@ -313,7 +326,7 @@ public class PlaceholderManager {
         names.removeIf(name -> name == null || name.isEmpty());
         
         if (names.isEmpty()) {
-            return fallback.isEmpty() ? "" : fallback;
+            return fallback.isEmpty() ? "" : ColorUtils.colorize(fallback);
         }
         
         return String.join(separator, names);
